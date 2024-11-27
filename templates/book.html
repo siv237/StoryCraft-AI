@@ -156,12 +156,72 @@
             position: absolute;
             pointer-events: none;
         }
+
+        .custom-choice {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-top: 1px dashed #e0e0e0;
+        }
+
+        .custom-choice-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #2c3e50;
+            border-radius: 5px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.1rem;
+        }
+
+        .custom-choice-btn {
+            background: #2c3e50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Crimson Text', serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .custom-choice-btn:hover {
+            background: #34495e;
+            transform: translateY(-2px);
+        }
+
+        .custom-choice-toggle {
+            display: block;
+            width: 100%;
+            padding: 15px 25px;
+            margin: 0.5rem 0;
+            background: #f8f9fa;
+            border: 1px dashed #2c3e50;
+            border-radius: 5px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.1rem;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .custom-choice-toggle:hover {
+            background: #f0f0f0;
+            color: #2c3e50;
+        }
     </style>
 </head>
 <body>
     <div class="book-container">
         <div id="story-container"></div>
         <div id="choices"></div>
+        <div id="custom-choice" class="custom-choice" style="display: none;">
+            <input type="text" id="custom-choice-input" class="custom-choice-input" 
+                   placeholder="Опишите свой вариант действий...">
+            <button id="custom-choice-submit" class="custom-choice-btn">Выбрать</button>
+        </div>
     </div>
 
     <div class="page-controls">
@@ -220,9 +280,17 @@
                         buttonsFragment.appendChild(button);
                     }
                 });
+
+                // Добавляем кнопку для пользовательского выбора
+                const customChoiceToggle = document.createElement('button');
+                customChoiceToggle.classList.add('custom-choice-toggle', 'fade-in');
+                customChoiceToggle.textContent = "Предложить свой вариант...";
+                customChoiceToggle.onclick = toggleCustomChoice;
+                buttonsFragment.appendChild(customChoiceToggle);
                 
                 choicesContainer.innerHTML = '';
                 choicesContainer.appendChild(buttonsFragment);
+                document.getElementById('custom-choice').style.display = 'none';
             } else {
                 // Заменяем только текущий поток текста
                 const fullText = storyContainer.innerHTML;
@@ -230,6 +298,34 @@
                 storyContainer.innerHTML = newText;
             }
         }
+
+        // Функция для переключения отображения поля пользовательского выбора
+        function toggleCustomChoice() {
+            const customChoice = document.getElementById('custom-choice');
+            const currentDisplay = customChoice.style.display;
+            customChoice.style.display = currentDisplay === 'none' ? 'block' : 'none';
+            if (currentDisplay === 'none') {
+                document.getElementById('custom-choice-input').focus();
+            }
+        }
+
+        // Инициализация обработчика пользовательского выбора
+        document.getElementById('custom-choice-submit').onclick = function() {
+            const input = document.getElementById('custom-choice-input');
+            const choice = input.value.trim();
+            if (choice) {
+                makeChoice(choice);
+                input.value = '';
+                document.getElementById('custom-choice').style.display = 'none';
+            }
+        };
+
+        // Добавляем обработчик Enter для поля ввода
+        document.getElementById('custom-choice-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('custom-choice-submit').click();
+            }
+        });
 
         // Функция для посимвольного вывода текста
         async function displayTextGradually(text) {
