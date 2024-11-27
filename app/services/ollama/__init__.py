@@ -1,0 +1,1 @@
+from .story_generator import generate_next_segment

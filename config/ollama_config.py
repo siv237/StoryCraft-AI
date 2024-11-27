@@ -3,14 +3,14 @@ from typing import Dict, Any
 # Базовые настройки Ollama
 OLLAMA_CONFIG = {
     "base_url": "http://localhost:11434",
-    "model": "hf.co/MTSAIR/Cotype-Nano-GGUF:latest",
+    "model": "hf.co/Vikhrmodels/Vikhr-Gemma-2B-instruct-GGUF:latest",
     
     # Параметры генерации
     "generation_params": {
-        "temperature": 0.7,      # Креативность генерации (0.0 - 1.0)
+        "temperature": 0.6,      # Креативность генерации (0.0 - 1.0)
         "top_p": 0.9,           # Разнообразие выборки токенов
         "top_k": 40,            # Количество токенов для выборки
-        "num_predict": 1000,    # Максимальное количество токенов для генерации
+        "num_predict": 8000,    # Максимальное количество токенов для генерации
         "stop": ["[/INST]"],    # Стоп-токены
     },
     

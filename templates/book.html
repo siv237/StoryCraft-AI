@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивная Книга</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f4f1ea;
+            font-family: 'Crimson Text', serif;
+            color: #2c3e50;
+        }
+
+        .book-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            border-radius: 5px;
+            min-height: 80vh;
+        }
+
+        .story-content {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            margin-bottom: 2rem;
+            text-align: justify;
+        }
+
+        .story-content p {
+            margin-bottom: 1.5rem;
+            text-indent: 2em;
+        }
+
+        .story-content img {
+            max-width: 100%;
+            margin: 2rem auto;
+            display: block;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+
+        .choices-container {
+            border-top: 2px solid #e0e0e0;
+            padding-top: 1rem;
+            margin-top: 2rem;
+        }
+
+        .choice {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: none;
+            border: 1px solid #2c3e50;
+            border-radius: 3px;
+            font-family: 'Crimson Text', serif;
+            font-size: 1.1rem;
+            color: #2c3e50;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .choice:hover {
+            background: #2c3e50;
+            color: #fff;
+        }
+
+        .fade-in {
+            animation: fadeIn 1s ease-in;
+        }
+
+        .fade-out {
+            animation: fadeOut 1s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { 
+                opacity: 0;
+                display: none;
+            }
+        }
+
+        .page-controls {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .scroll-button {
+            background: #2c3e50;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 3px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .scroll-button:hover {
+            opacity: 1;
+        }
+
+        .chapter-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 2rem;
+            font-style: italic;
+        }
+
+        .service-message {
+            color: #666;
+            font-style: italic;
+            padding: 0.5rem;
+            margin: 1rem 0;
+            border-left: 3px solid #e0e0e0;
+        }
+
+        .choice-text {
+            font-style: italic;
+            color: #666;
+            text-align: center;
+            margin: 1.5rem 0;
+            font-size: 1.1rem;
+        }
+        
+        .choice-btn {
+            padding: 12px 24px;
+            margin: 8px;
+            font-size: 1rem;
+            color: #4a4a4a;
+            background-color: #ffffff;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .choice-btn:hover {
+            background-color: #f8f8f8;
+            border-color: #d0d0d0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="book-container">
+        <div class="story-content" id="storyContent">
+            <!-- Здесь будет контент истории -->
+        </div>
+        <div class="choices-container" id="choicesContainer">
+            <!-- Здесь будут варианты выбора -->
+        </div>
+    </div>
+
+    <div class="page-controls">
+        <button class="scroll-button" id="scrollUp">↑</button>
+        <button class="scroll-button" id="scrollDown">↓</button>
+    </div>
+
+    <script>
+        let storyContent = document.getElementById('storyContent');
+        let choicesContainer = document.getElementById('choicesContainer');
+        let ws = new WebSocket(`ws://${window.location.host}/ws`);
+        let serviceMessages = new Set();
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'story') {
+                appendStoryContent(data.content);
+            } else if (data.type === 'choices') {
+                showChoices(data.choices);
+            }
+        };
+
+        function appendStoryContent(content) {
+            const paragraph = document.createElement('p');
+            paragraph.classList.add('fade-in');
+            
+            // Определяем, является ли это служебным сообщением
+            if (content.includes("Перо писателя") || content.includes("Страницы книги")) {
+                paragraph.classList.add('service-message');
+                serviceMessages.add(paragraph);
+            }
+            
+            paragraph.textContent = content;
+            storyContent.appendChild(paragraph);
+            paragraph.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+
+        function showChoices(choices) {
+            // Удаляем предыдущие служебные сообщения
+            serviceMessages.forEach(msg => {
+                msg.classList.add('fade-out');
+                setTimeout(() => {
+                    if (msg.parentNode === storyContent) {
+                        storyContent.removeChild(msg);
+                    }
+                }, 1000);
+            });
+            serviceMessages.clear();
+
+            choicesContainer.innerHTML = '';
+            choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.classList.add('choice-btn', 'fade-in');
+                button.textContent = choice;
+                button.onclick = () => makeChoice(choice);
+                choicesContainer.appendChild(button);
+            });
+        }
+
+        function makeChoice(choice) {
+            ws.send(JSON.stringify({
+                type: 'choice',
+                content: choice
+            }));
+            
+            // Добавляем выбор в историю красиво оформленным
+            const choiceParagraph = document.createElement('p');
+            choiceParagraph.classList.add('fade-in', 'choice-text');
+            
+            // Генерируем случайную литературную фразу для описания выбора
+            const phrases = [
+                `Путник решает ${choice.toLowerCase()}...`,
+                `Поразмыслив, герой выбирает ${choice.toLowerCase()}...`,
+                `После недолгих раздумий, решение принято: ${choice.toLowerCase()}...`,
+                `Взвесив все за и против, решение принято: ${choice.toLowerCase()}...`,
+                `Внутренний голос подсказывает: ${choice.toLowerCase()}...`
+            ];
+            const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+            
+            choiceParagraph.textContent = `\n${randomPhrase}\n`;
+            storyContent.appendChild(choiceParagraph);
+            
+            // Очищаем контейнер с выборами
+            choicesContainer.innerHTML = '';
+        }
+
+        // Управление прокруткой
+        document.getElementById('scrollUp').onclick = () => {
+            window.scrollBy({
+                top: -300,
+                behavior: 'smooth'
+            });
+        };
+
+        document.getElementById('scrollDown').onclick = () => {
+            window.scrollBy({
+                top: 300,
+                behavior: 'smooth'
+            });
+        };
+    </script>
+</body>
+</html>
