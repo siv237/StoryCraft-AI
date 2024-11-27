@@ -18,35 +18,11 @@ async def websocket_endpoint(websocket: WebSocket):
     logger.info("WebSocket connection accepted")
     
     try:
-        # Начинаем историю
-        story_context = {
-            "current_chapter": 1,
-            "story_state": "beginning",
-            "previous_choices": []
-        }
-        
-        # Отправляем начало истории
-        initial_story = {
-            "type": "story",
-            "content": """Глава 1: Начало пути
-
-Солнце медленно поднималось над горизонтом, окрашивая небо в нежные оттенки розового и золотого. Новый день нёс с собой ощущение перемен. В воздухе витало предчувствие чего-то необычного, словно сама судьба готовила неожиданный поворот в привычном течении жизни.
-
-Утренний туман стелился по земле, окутывая подножия деревьев призрачной дымкой. В этот ранний час мир казался застывшим на грани между сном и явью, между привычным прошлым и неизведанным будущим."""
-        }
-        
-        # Отправляем первые варианты выбора
-        initial_choices = {
+        # Начинаем с кнопки "Начать историю"
+        await websocket.send_json({
             "type": "choices",
-            "choices": [
-                "Отправиться в путь, не теряя времени",
-                "Задержаться и понаблюдать за восходом",
-                "Вернуться домой за забытыми вещами"
-            ]
-        }
-        
-        await websocket.send_json(initial_story)
-        await websocket.send_json(initial_choices)
+            "choices": ["Начать историю"]
+        })
         
         while True:
             data = await websocket.receive_text()
@@ -54,36 +30,38 @@ async def websocket_endpoint(websocket: WebSocket):
             
             if message["type"] == "choice":
                 choice = message["content"]
-                story_context["previous_choices"].append(choice)
                 logger.info(f"User choice received: {choice}")
                 
-                # Генерируем продолжение истории на основе выбора
-                next_segment = await generate_next_segment(
-                    choice,
-                    story_context
-                )
-                logger.info(f"Generated story segment: {next_segment['text'][:50]}...")
+                if choice == "Начать историю":
+                    # Инициализируем контекст истории
+                    story_context = {
+                        "current_chapter": 1,
+                        "story_state": "beginning",
+                        "previous_choices": []
+                    }
+                else:
+                    # Обычная обработка выбора
+                    story_context["previous_choices"].append(choice)
                 
-                # Проверяем, изменилась ли глава
-                if next_segment.get("chapter", story_context["current_chapter"]) > story_context["current_chapter"]:
-                    # Если началась новая глава, добавляем заголовок
-                    chapter_title = f"\n\nГлава {next_segment['chapter']}"
-                    await websocket.send_json({
-                        "type": "story",
-                        "content": chapter_title
-                    })
-                
-                # Отправляем новый фрагмент истории
-                await websocket.send_json({
-                    "type": "story",
-                    "content": f"\n\n{next_segment['text']}"
-                })
-                
-                # Отправляем новые варианты выбора
-                await websocket.send_json({
-                    "type": "choices",
-                    "choices": next_segment["choices"]
-                })
+                # Генерируем историю потоково
+                current_text = ""
+                async for segment in generate_next_segment(choice, story_context):
+                    # Отправляем только новый текст
+                    new_text = segment["text"][len(current_text):]
+                    if new_text:
+                        await websocket.send_json({
+                            "type": "story",
+                            "content": new_text,
+                            "done": segment["done"]  # Добавляем флаг done
+                        })
+                        current_text = segment["text"]
+                    
+                    # Если есть варианты выбора и генерация закончена
+                    if segment["choices"] and segment["done"]:
+                        await websocket.send_json({
+                            "type": "choices",
+                            "choices": segment["choices"]
+                        })
                 
     except WebSocketDisconnect:
         active_connections.remove(websocket)

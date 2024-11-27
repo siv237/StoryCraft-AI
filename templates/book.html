@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Интерактивная Книга</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
         
         body {
             margin: 0;
-            padding: 0;
+            padding: 20px;
             background: #f4f1ea;
             font-family: 'Crimson Text', serif;
             color: #2c3e50;
@@ -22,73 +23,85 @@
             background: #fff;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
             border-radius: 5px;
+            position: relative;
             min-height: 80vh;
         }
 
-        .story-content {
+        #story-container {
             font-size: 1.2rem;
             line-height: 1.8;
             margin-bottom: 2rem;
-            text-align: justify;
+            white-space: pre-wrap;
         }
 
-        .story-content p {
-            margin-bottom: 1.5rem;
+        /* Стили для Markdown */
+        #story-container h1, #story-container h2, #story-container h3 {
+            color: #2c3e50;
+            margin-top: 1.5em;
+        }
+
+        #story-container p {
+            margin: 1em 0;
+        }
+
+        #story-container em {
+            font-style: italic;
+        }
+
+        #story-container strong {
+            font-weight: 600;
+        }
+
+        #story-container blockquote {
+            border-left: 4px solid #e0e0e0;
+            margin: 1em 0;
+            padding-left: 1em;
+            color: #666;
+        }
+
+        .story-text {
+            margin-bottom: 1em;
             text-indent: 2em;
         }
 
-        .story-content img {
-            max-width: 100%;
-            margin: 2rem auto;
-            display: block;
-            box-shadow: 0 0 15px rgba(0,0,0,0.1);
-        }
-
-        .choices-container {
+        #choices {
             border-top: 2px solid #e0e0e0;
             padding-top: 1rem;
             margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
-        .choice {
+        .choice-btn {
             display: block;
             width: 100%;
-            padding: 1rem;
+            padding: 15px 25px;
             margin: 0.5rem 0;
-            background: none;
+            background: white;
             border: 1px solid #2c3e50;
-            border-radius: 3px;
+            border-radius: 5px;
             font-family: 'Crimson Text', serif;
             font-size: 1.1rem;
             color: #2c3e50;
             cursor: pointer;
             transition: all 0.3s ease;
+            text-align: left;
         }
 
-        .choice:hover {
-            background: #2c3e50;
-            color: #fff;
+        .choice-btn:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .fade-in {
-            animation: fadeIn 1s ease-in;
-        }
-
-        .fade-out {
-            animation: fadeOut 1s ease-out forwards;
+            animation: fadeIn 0.5s ease-in;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { 
-                opacity: 0;
-                display: none;
-            }
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .page-controls {
@@ -138,35 +151,17 @@
             font-size: 1.1rem;
         }
         
-        .choice-btn {
-            padding: 12px 24px;
-            margin: 8px;
-            font-size: 1rem;
-            color: #4a4a4a;
-            background-color: #ffffff;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .choice-btn:hover {
-            background-color: #f8f8f8;
-            border-color: #d0d0d0;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        #text-buffer {
+            opacity: 0;
+            position: absolute;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
     <div class="book-container">
-        <div class="story-content" id="storyContent">
-            <!-- Здесь будет контент истории -->
-        </div>
-        <div class="choices-container" id="choicesContainer">
-            <!-- Здесь будут варианты выбора -->
-        </div>
+        <div id="story-container"></div>
+        <div id="choices"></div>
     </div>
 
     <div class="page-controls">
@@ -174,57 +169,75 @@
         <button class="scroll-button" id="scrollDown">↓</button>
     </div>
 
+    <div id="text-buffer"></div>
+
     <script>
-        let storyContent = document.getElementById('storyContent');
-        let choicesContainer = document.getElementById('choicesContainer');
+        marked.setOptions({
+            breaks: true,  // Переносы строк как в markdown
+            gfm: true,    // GitHub Flavored Markdown
+        });
+
         let ws = new WebSocket(`ws://${window.location.host}/ws`);
-        let serviceMessages = new Set();
+        let storyContainer = document.getElementById("story-container");
+        let choicesContainer = document.getElementById("choices");
+        let textBuffer = document.getElementById("text-buffer");
+        let currentText = "";
+        let textQueue = [];
+        let isProcessing = false;
+        let buffer = "";
+        let isStreamComplete = false;
+        let currentStreamStart = 0; // Позиция начала текущего потока
 
-        ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
+        // Функция для форматирования текста и создания кнопок
+        function formatAndDisplay(text) {
+            // Убираем [DONE] из текста
+            text = text.replace(/\[DONE\]/g, '');
             
-            if (data.type === 'story') {
-                appendStoryContent(data.content);
-            } else if (data.type === 'choices') {
-                showChoices(data.choices);
+            const parts = text.split(/(?=\d+[\.\)])/);  // Разделяем по началу нумерации
+            
+            if (parts.length > 1) {
+                // Заменяем только текущий поток текста
+                const fullText = storyContainer.innerHTML;
+                const newText = fullText.substring(0, currentStreamStart) + marked.parse(parts[0]);
+                storyContainer.innerHTML = newText;
+                
+                // Создаем кнопки для вариантов
+                const buttonsFragment = document.createDocumentFragment();
+                parts.slice(1).forEach(choice => {
+                    const button = document.createElement('button');
+                    button.classList.add('choice-btn', 'fade-in');
+                    button.textContent = choice.replace(/^\d+[\.\)]\s*/, '');
+                    button.onclick = () => makeChoice(button.textContent);
+                    buttonsFragment.appendChild(button);
+                });
+                
+                choicesContainer.innerHTML = '';
+                choicesContainer.appendChild(buttonsFragment);
+            } else {
+                // Заменяем только текущий поток текста
+                const fullText = storyContainer.innerHTML;
+                const newText = fullText.substring(0, currentStreamStart) + marked.parse(text);
+                storyContainer.innerHTML = newText;
             }
-        };
-
-        function appendStoryContent(content) {
-            const paragraph = document.createElement('p');
-            paragraph.classList.add('fade-in');
-            
-            // Определяем, является ли это служебным сообщением
-            if (content.includes("Перо писателя") || content.includes("Страницы книги")) {
-                paragraph.classList.add('service-message');
-                serviceMessages.add(paragraph);
-            }
-            
-            paragraph.textContent = content;
-            storyContent.appendChild(paragraph);
-            paragraph.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
 
-        function showChoices(choices) {
-            // Удаляем предыдущие служебные сообщения
-            serviceMessages.forEach(msg => {
-                msg.classList.add('fade-out');
-                setTimeout(() => {
-                    if (msg.parentNode === storyContent) {
-                        storyContent.removeChild(msg);
-                    }
-                }, 1000);
-            });
-            serviceMessages.clear();
-
-            choicesContainer.innerHTML = '';
-            choices.forEach(choice => {
-                const button = document.createElement('button');
-                button.classList.add('choice-btn', 'fade-in');
-                button.textContent = choice;
-                button.onclick = () => makeChoice(choice);
-                choicesContainer.appendChild(button);
-            });
+        // Функция для посимвольного вывода текста
+        async function displayTextGradually(text) {
+            if (!text.trim()) return;
+            
+            // Убираем [DONE] из текста
+            text = text.replace(/\[DONE\]/g, '');
+            
+            // Если это первый текст потока, сохраняем позицию
+            if (buffer === "") {
+                currentStreamStart = storyContainer.innerHTML.length;
+            }
+            
+            buffer += text;
+            const fullText = storyContainer.innerHTML;
+            const newText = fullText.substring(0, currentStreamStart) + marked.parse(buffer);
+            storyContainer.innerHTML = newText;
+            await new Promise(resolve => setTimeout(resolve, 30));
         }
 
         function makeChoice(choice) {
@@ -233,26 +246,69 @@
                 content: choice
             }));
             
-            // Добавляем выбор в историю красиво оформленным
-            const choiceParagraph = document.createElement('p');
-            choiceParagraph.classList.add('fade-in', 'choice-text');
-            
-            // Генерируем случайную литературную фразу для описания выбора
             const phrases = [
-                `Путник решает ${choice.toLowerCase()}...`,
-                `Поразмыслив, герой выбирает ${choice.toLowerCase()}...`,
-                `После недолгих раздумий, решение принято: ${choice.toLowerCase()}...`,
-                `Взвесив все за и против, решение принято: ${choice.toLowerCase()}...`,
-                `Внутренний голос подсказывает: ${choice.toLowerCase()}...`
+                `*Путник решает ${choice.toLowerCase()}...*`,
+                `*Поразмыслив, герой выбирает ${choice.toLowerCase()}...*`,
+                `*После недолгих раздумий, решение принято: ${choice.toLowerCase()}...*`,
+                `*Взвесив все за и против, решение принято: ${choice.toLowerCase()}...*`,
+                `*Внутренний голос подсказывает: ${choice.toLowerCase()}...*`
             ];
             const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
             
-            choiceParagraph.textContent = `\n${randomPhrase}\n`;
-            storyContent.appendChild(choiceParagraph);
-            
-            // Очищаем контейнер с выборами
+            // При выборе добавляем текст в конец и обновляем позицию
+            storyContainer.innerHTML += marked.parse('\n\n' + randomPhrase);
+            currentStreamStart = storyContainer.innerHTML.length;
             choicesContainer.innerHTML = '';
+            buffer = "";
+            isStreamComplete = false;
         }
+
+        // Функция для обработки текстовой очереди
+        async function processTextQueue() {
+            if (isProcessing || textQueue.length === 0) return;
+            
+            isProcessing = true;
+            while (textQueue.length > 0) {
+                const text = textQueue.shift();
+                
+                if (text.includes("[DONE]")) {
+                    isStreamComplete = true;
+                    const finalText = text.replace("[DONE]", "").trim();
+                    if (finalText) {
+                        await displayTextGradually(finalText);
+                    }
+                    formatAndDisplay(buffer);
+                    buffer = "";
+                } else {
+                    await displayTextGradually(text);
+                }
+            }
+            isProcessing = false;
+        }
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log("Received message:", data);
+            
+            if (data.type === 'story') {
+                // Если это последний фрагмент, добавляем маркер завершения
+                if (data.done === true) {
+                    textQueue.push(data.content + " [DONE]");
+                } else {
+                    textQueue.push(data.content);
+                }
+                processTextQueue();
+            } else if (data.type === 'choices') {
+                choicesContainer.innerHTML = '';
+                data.choices.forEach(choice => {
+                    const button = document.createElement('button');
+                    button.classList.add('choice-btn', 'fade-in');
+                    button.textContent = choice;
+                    button.onclick = () => makeChoice(choice);
+                    choicesContainer.appendChild(button);
+                });
+            }
+        };
 
         // Управление прокруткой
         document.getElementById('scrollUp').onclick = () => {
