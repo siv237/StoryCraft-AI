@@ -193,22 +193,32 @@
             // Убираем [DONE] из текста
             text = text.replace(/\[DONE\]/g, '');
             
-            const parts = text.split(/(?=\d+[\.\)])/);  // Разделяем по началу нумерации
+            // Ищем варианты выбора по обоим форматам (* и цифры)
+            const parts = text.split(/(?=\s*[\*\d][\.\)]\s+|\s+\*\s+)/);
             
             if (parts.length > 1) {
+                // Первая часть - это текст истории
+                const storyText = parts[0];
+                // Остальные части - варианты выбора
+                const choices = parts.slice(1).map(choice => 
+                    choice.replace(/^\s*(?:\*\s+|\d+[\.\)]\s+)/, '').trim() // Убираем маркеры
+                );
+                
                 // Заменяем только текущий поток текста
                 const fullText = storyContainer.innerHTML;
-                const newText = fullText.substring(0, currentStreamStart) + marked.parse(parts[0]);
+                const newText = fullText.substring(0, currentStreamStart) + marked.parse(storyText);
                 storyContainer.innerHTML = newText;
                 
                 // Создаем кнопки для вариантов
                 const buttonsFragment = document.createDocumentFragment();
-                parts.slice(1).forEach(choice => {
-                    const button = document.createElement('button');
-                    button.classList.add('choice-btn', 'fade-in');
-                    button.textContent = choice.replace(/^\d+[\.\)]\s*/, '');
-                    button.onclick = () => makeChoice(button.textContent);
-                    buttonsFragment.appendChild(button);
+                choices.forEach(choice => {
+                    if (choice.trim()) {  // Проверяем, что вариант не пустой
+                        const button = document.createElement('button');
+                        button.classList.add('choice-btn', 'fade-in');
+                        button.textContent = choice;
+                        button.onclick = () => makeChoice(choice);
+                        buttonsFragment.appendChild(button);
+                    }
                 });
                 
                 choicesContainer.innerHTML = '';
@@ -232,12 +242,23 @@
             if (buffer === "") {
                 currentStreamStart = storyContainer.innerHTML.length;
             }
+
+            // Создаем временный div для рендеринга markdown
+            const tempDiv = document.createElement('div');
             
-            buffer += text;
-            const fullText = storyContainer.innerHTML;
-            const newText = fullText.substring(0, currentStreamStart) + marked.parse(buffer);
-            storyContainer.innerHTML = newText;
-            await new Promise(resolve => setTimeout(resolve, 30));
+            // Добавляем текст посимвольно
+            for (let i = 0; i < text.length; i++) {
+                buffer += text[i];
+                
+                // Рендерим markdown во временный div
+                tempDiv.innerHTML = marked.parse(buffer);
+                
+                // Обновляем только текущий поток
+                const fullText = storyContainer.innerHTML;
+                storyContainer.innerHTML = fullText.substring(0, currentStreamStart) + tempDiv.innerHTML;
+                
+                await new Promise(resolve => setTimeout(resolve, 30));
+            }
         }
 
         function makeChoice(choice) {
