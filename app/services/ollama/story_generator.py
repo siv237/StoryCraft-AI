@@ -240,52 +240,91 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
             illustration = None
             if story_text.strip():
                 logger.info("[GENERATOR] >>> Начинаем генерацию промпта для иллюстрации")
-                # Используем ту же сессию Ollama для подготовки промпта и перевода
-                prompt_response = await session.post(
-                    "http://localhost:11434/api/generate",
-                    json={
-                        "model": OLLAMA_CONFIG["model"],
-                        "prompt": f"""Create a summary of the scene in English, focusing on visual elements and atmosphere. 
-                        Include: location, lighting, main objects, and overall mood.
-                        Keep it under 30 words.
-                        
-                        Story text: {story_text}""",
-                        "stream": True,
-                        **OLLAMA_CONFIG['generation_params']
-                    }
-                )
                 
-                if prompt_response.status == 200:
-                    response_text = ""
-                    async for line in prompt_response.content:
-                        if not line.strip():
-                            continue
-                        try:
-                            data = json.loads(line)
-                            if "response" in data:
-                                response_text += data["response"]
-                        except json.JSONDecodeError:
-                            continue
+                async def generate_image_prompt(text: str, max_attempts: int = 3) -> str:
+                    """Генерирует промпт для изображения с проверкой на английский язык"""
+                    def contains_cyrillic(text: str) -> bool:
+                        return bool(re.search('[а-яА-Я]', text))
                     
-                    # Очищаем и используем текст напрямую как промпт
-                    illustration_prompt = response_text.strip()
-                    logger.info(f"[GENERATOR] Подготовлен промпт для изображения: {illustration_prompt}")
+                    def clean_story_text(text: str) -> str:
+                        """Очищает текст от диалогов и вопросов"""
+                        # Удаляем строки с цифрами и звездочками (обычно это опции выбора)
+                        lines = [line for line in text.split('\n') if not re.search(r'^\d+[\.\)]|^\*+', line.strip())]
+                        # Удаляем текст в кавычках (обычно это диалоги)
+                        text = ' '.join(lines)
+                        text = re.sub(r'"[^"]*"', '', text)
+                        # Удаляем вопросительные предложения
+                        text = re.sub(r'[^.!?]+\?', '', text)
+                        return text.strip()
                     
-                    # Генерируем иллюстрацию
-                    illustration = await story_image_generator.generate_story_illustration({
-                        'current_text': story_text,
-                        'current_chapter': current_chapter,
-                        'prompt': illustration_prompt,
-                        'session': session  # Передаем сессию в генератор изображений
-                    })
+                    # Очищаем текст перед генерацией
+                    cleaned_text = clean_story_text(text)
                     
-                    if illustration:
-                        logger.info("[GENERATOR] >>> Отправляем сгенерированную иллюстрацию")
-                        yield {
-                            "type": "image",
-                            "content": f"http://127.0.0.1:8188/view?filename={illustration}",
-                            "prompt": illustration_prompt
-                        }
-                        logger.info("[GENERATOR] <<< Иллюстрация отправлена")
+                    for attempt in range(max_attempts):
+                        prompt_response = await session.post(
+                            "http://localhost:11434/api/generate",
+                            json={
+                                "model": OLLAMA_CONFIG["model"],
+                                "prompt": f"""Create a summary of the scene in English, focusing ONLY on visual elements and atmosphere. 
+                                Include: location, lighting, main objects, and overall mood.
+                                Keep it under 30 words.
+                                IMPORTANT: 
+                                - Response must be in English only!
+                                - Describe ONLY what can be seen in the scene
+                                - NO dialogue or questions
+                                - NO numbered lists or choices
+                                
+                                Story text: {cleaned_text}""",
+                                "stream": True,
+                                **OLLAMA_CONFIG['generation_params']
+                            }
+                        )
+                        
+                        if prompt_response.status == 200:
+                            response_text = ""
+                            async for line in prompt_response.content:
+                                if not line.strip():
+                                    continue
+                                try:
+                                    data = json.loads(line)
+                                    if "response" in data:
+                                        response_text += data["response"]
+                                except json.JSONDecodeError:
+                                    continue
+                            
+                            response_text = response_text.strip()
+                            
+                            # Проверяем на наличие кириллицы
+                            if not contains_cyrillic(response_text):
+                                logger.info(f"[GENERATOR] Успешно сгенерирован промпт на английском (попытка {attempt + 1})")
+                                return response_text
+                            else:
+                                logger.warning(f"[GENERATOR] Промпт содержит кириллицу, пробуем еще раз (попытка {attempt + 1})")
+                                continue
+                    
+                    # Если все попытки неудачны, возвращаем базовый промпт
+                    logger.error("[GENERATOR] Не удалось сгенерировать промпт на английском")
+                    return "A mysterious scene with dark atmosphere"
+                
+                # Генерируем промпт с проверкой на английский
+                illustration_prompt = await generate_image_prompt(story_text)
+                logger.info(f"[GENERATOR] Подготовлен промпт для изображения: {illustration_prompt}")
+                
+                # Генерируем иллюстрацию
+                illustration = await story_image_generator.generate_story_illustration({
+                    'current_text': story_text,
+                    'current_chapter': current_chapter,
+                    'prompt': illustration_prompt,
+                    'session': session  # Передаем сессию в генератор изображений
+                })
+                
+                if illustration:
+                    logger.info("[GENERATOR] >>> Отправляем сгенерированную иллюстрацию")
+                    yield {
+                        "type": "image",
+                        "content": f"http://127.0.0.1:8188/view?filename={illustration}",
+                        "prompt": illustration_prompt
+                    }
+                    logger.info("[GENERATOR] <<< Иллюстрация отправлена")
             
             logger.info("[GENERATOR] <<< Генерация сегмента завершена")
