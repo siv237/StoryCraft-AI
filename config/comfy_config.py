@@ -19,7 +19,7 @@ class ComfyUIConfig:
             "3": {
                 "inputs": {
                     "seed": 92494398233826,
-                    "steps": 10,          # Уменьшили количество шагов
+                    "steps": 7,          # Уменьшили количество шагов для экономии памяти
                     "cfg": 7,
                     "sampler_name": "euler_ancestral",
                     "scheduler": "karras",
@@ -36,7 +36,7 @@ class ComfyUIConfig:
             },
             "4": {
                 "inputs": {
-                    "ckpt_name": "CrowPonyQp_ponyV3.safetensors"  # Стабильная модель, хорошо работает
+                    "ckpt_name": "flat2DAnimerge_v45Sharp.safetensors"  # Аниме-стиль модель
                 },
                 "class_type": "CheckpointLoaderSimple",
                 "_meta": {

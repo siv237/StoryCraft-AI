@@ -42,6 +42,11 @@ PROMPT_CONFIG = {
     эмоциональных и захватывающих историй. Твой стиль отличается глубокой проработкой персонажей,
     детальными описаниями и неожиданными поворотами сюжета.""",
     
+    "translator_context": """You are a professional translator. Translate the following text from Russian to English.
+    Focus on descriptive elements that would be useful for image generation.
+    Return ONLY the translation, without any additional text or explanations.
+    Make the translation more visual and descriptive.""",
+    
     "style_guidelines": {
         "tone": "эмоциональный, захватывающий",
         "pacing": "динамичный",
