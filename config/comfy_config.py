@@ -20,7 +20,7 @@ class ComfyUIConfig:
                 "inputs": {
                     "seed": 92494398233826,
                     "steps": 20,          # Уменьшили количество шагов для экономии памяти
-                    "cfg": 7,
+                    "cfg": 1,
                     "sampler_name": "euler_ancestral",
                     "scheduler": "karras",
                     "denoise": 1,
@@ -36,7 +36,7 @@ class ComfyUIConfig:
             },
             "4": {
                 "inputs": {
-                    "ckpt_name": "epicrealism_naturalSinRC1VAE.safetensors"  # Аниме-стиль модель
+                    "ckpt_name": "epicrealism_naturalSinRC1VAE.safetensors"  # 
                 },
                 "class_type": "CheckpointLoaderSimple",
                 "_meta": {
@@ -45,8 +45,8 @@ class ComfyUIConfig:
             },
             "5": {
                 "inputs": {
-                    "width": 800,         # Уменьшили разрешение
-                    "height": 384,
+                    "width": 400,         # Уменьшили разрешение
+                    "height": 300,
                     "batch_size": 1
                 },
                 "class_type": "EmptyLatentImage",
@@ -115,17 +115,13 @@ class ComfyUIConfig:
             return None
 
     def modify_workflow(self, prompt: str, seed: Optional[int] = None,
-                       width: int = 384, height: int = 384) -> Dict[str, Any]:
+                       width: int = 800, height: int = 384) -> Dict[str, Any]:
         """Модификация рабочего процесса с пользовательскими параметрами"""
         workflow = self.default_workflow.copy()
         
         # Обновляем параметры
         if seed is not None:
             workflow["3"]["inputs"]["seed"] = seed
-        
-        # Ограничиваем размеры для экономии памяти
-        width = min(width, 384)    # Уменьшили максимальный размер
-        height = min(height, 384)
         
         workflow["5"]["inputs"]["width"] = width
         workflow["5"]["inputs"]["height"] = height

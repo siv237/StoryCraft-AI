@@ -153,13 +153,18 @@ class StoryImageGenerator:
                         if free_memory < 2 * 1024 * 1024 * 1024:  # 2GB в байтах
                             logger.warning("Недостаточно свободной памяти GPU для генерации изображения")
                             return None
+                
+                # Выгружаем модель Ollama перед генерацией изображения
+                try:
+                    await session.post("http://localhost:11434/api/unload", json={"model": OLLAMA_CONFIG["model"]})
+                    logger.info("Модель Ollama выгружена перед генерацией изображения")
+                except Exception as e:
+                    logger.error(f"Ошибка при выгрузке модели Ollama: {e}")
             
                 # Модифицируем workflow с нашим промптом
                 workflow = comfy_config.modify_workflow(
                     prompt=full_prompt,
-                    seed=None,  # Используем случайный сид для разнообразия
-                    width=384,  # Уменьшенный размер для экономии памяти
-                    height=384
+                    seed=None  # Используем случайный сид для разнообразия
                 )
                 
                 # Отправляем запрос на генерацию
