@@ -79,6 +79,11 @@
             opacity: 1;
         }
 
+        .story-image-wrapper {
+            margin: 2em auto;
+            text-align: center;
+        }
+
         #choices {
             border-top: 2px solid #e0e0e0;
             padding-top: 1rem;
@@ -238,7 +243,6 @@
 <body>
     <div class="book-container">
         <div id="story-container"></div>
-        <div id="story-image-container"></div>
         <div id="choices"></div>
         <div id="custom-choice" class="custom-choice" style="display: none;">
             <input type="text" id="custom-choice-input" class="custom-choice-input" 
@@ -412,7 +416,11 @@
                 return;
             }
             
-            const imageContainer = document.getElementById("story-image-container");
+            const storyContainer = document.getElementById("story-container");
+            
+            // Создаем контейнер для изображения и промпта
+            const imageWrapper = document.createElement("div");
+            imageWrapper.className = "story-image-wrapper";
             
             // Создаем и добавляем изображение
             const img = document.createElement("img");
@@ -424,16 +432,25 @@
             prompt.className = "image-prompt";
             prompt.textContent = "Generated from: " + imageData.prompt;
             
-            // Очищаем контейнер и добавляем новые элементы
-            imageContainer.innerHTML = '';
-            imageContainer.appendChild(img);
-            imageContainer.appendChild(prompt);
+            // Собираем все вместе
+            imageWrapper.appendChild(img);
+            imageWrapper.appendChild(prompt);
+            
+            // Находим последний абзац текста
+            const paragraphs = storyContainer.getElementsByTagName('p');
+            if (paragraphs.length > 0) {
+                const lastParagraph = paragraphs[paragraphs.length - 1];
+                // Вставляем изображение после последнего абзаца
+                lastParagraph.parentNode.insertBefore(imageWrapper, lastParagraph.nextSibling);
+            } else {
+                // Если абзацев нет, добавляем в конец контейнера
+                storyContainer.appendChild(imageWrapper);
+            }
             
             // Делаем изображение видимым после загрузки
             img.onload = () => {
                 requestAnimationFrame(() => {
                     img.classList.add("visible");
-                    img.scrollIntoView({ behavior: "smooth", block: "center" });
                 });
             };
         }
