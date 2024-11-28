@@ -64,6 +64,21 @@
             text-indent: 2em;
         }
 
+        .story-image {
+            max-width: 100%;
+            height: auto;
+            margin: 2em auto;
+            display: block;
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .story-image.visible {
+            opacity: 1;
+        }
+
         #choices {
             border-top: 2px solid #e0e0e0;
             padding-top: 1rem;
@@ -216,6 +231,7 @@
 <body>
     <div class="book-container">
         <div id="story-container"></div>
+        <div id="story-image-container"></div>
         <div id="choices"></div>
         <div id="custom-choice" class="custom-choice" style="display: none;">
             <input type="text" id="custom-choice-input" class="custom-choice-input" 
@@ -414,6 +430,7 @@
                 } else {
                     textQueue.push(data.content);
                 }
+                
                 processTextQueue();
             } else if (data.type === 'choices') {
                 choicesContainer.innerHTML = '';
@@ -424,6 +441,19 @@
                     button.onclick = () => makeChoice(choice);
                     choicesContainer.appendChild(button);
                 });
+            } else if (data.type === 'image') {
+                const imageContainer = document.getElementById("story-image-container");
+                const img = document.createElement("img");
+                img.className = "story-image";
+                img.src = data.content;  // Используем полный URL как есть
+                img.onload = () => {
+                    setTimeout(() => img.classList.add("visible"), 100);
+                };
+                imageContainer.innerHTML = "";
+                imageContainer.appendChild(img);
+                
+                // Прокручиваем к изображению
+                img.scrollIntoView({ behavior: "smooth", block: "center" });
             }
         };
 

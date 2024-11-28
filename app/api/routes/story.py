@@ -3,6 +3,8 @@ from typing import List, Dict
 import json
 import logging
 from app.services.ollama import generate_next_segment
+from app.services.comfy.image_generator import story_image_generator
+import aiohttp
 
 router = APIRouter()
 active_connections: List[WebSocket] = []
@@ -52,9 +54,30 @@ async def websocket_endpoint(websocket: WebSocket):
                         await websocket.send_json({
                             "type": "story",
                             "content": new_text,
-                            "done": segment["done"]  # Добавляем флаг done
+                            "done": segment["done"]
                         })
                         current_text = segment["text"]
+                    
+                    # Если сегмент завершен, генерируем изображение
+                    if segment["done"]:
+                        # Обновляем контекст истории текущим текстом
+                        story_context["current_text"] = current_text
+                        
+                        # Создаем сессию для генератора изображений
+                        async with aiohttp.ClientSession() as session:
+                            story_context["session"] = session
+                            # Генерируем изображение
+                            try:
+                                image_path = await story_image_generator.generate_story_illustration(story_context)
+                                if image_path:
+                                    # Отправляем URL для просмотра изображения
+                                    await websocket.send_json({
+                                        "type": "image",
+                                        "content": f"http://127.0.0.1:8188/view?filename={image_path}"
+                                    })
+                                    logger.info(f"Image sent to client: {image_path}")
+                            except Exception as e:
+                                logger.error(f"Error generating image: {e}")
                     
                     # Если есть варианты выбора и генерация закончена
                     if segment["choices"] and segment["done"]:
