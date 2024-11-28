@@ -11,6 +11,18 @@ from app.services.comfy.image_generator import story_image_generator
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+async def unload_model_from_gpu():
+    """Выгружает модель из GPU без её удаления"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            response = await session.post("http://localhost:11434/api/show")
+            if response.status == 200:
+                logger.info(f"Модель {OLLAMA_CONFIG['model']} выгружена из GPU")
+            else:
+                logger.warning(f"Не удалось выгрузить модель из GPU: {await response.text()}")
+    except Exception as e:
+        logger.warning(f"Ошибка при выгрузке модели из GPU: {e}")
+
 async def generate_next_segment(choice: str, context: Dict) -> Dict:
     # Создаем краткое описание текущего состояния истории
     story_state = "\\n".join([
@@ -105,7 +117,7 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                     chunk = data["response"]
                     buffer += chunk
                     
-                    # Если встретили знак конца предложения, отправляем весь буфер
+                    # Если встретили знак конца предложения, отправляем только новое предложение
                     if any(p in chunk for p in ".!?"):
                         sentence_end_idx = max(
                             buffer.rfind("."),
@@ -117,6 +129,7 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                             story_text += complete_sentence + " "
                             buffer = buffer[sentence_end_idx + 1:].lstrip()
                             
+                            # Отправляем только новое предложение
                             yield {
                                 "text": story_text.strip(),
                                 "choices": [],
@@ -134,13 +147,50 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
             if buffer:
                 story_text += buffer
             
-            # Генерируем иллюстрацию перед отправкой последнего фрагмента
-            illustration = None
+            # Сначала подготавливаем промпт для иллюстрации
+            illustration_prompt = None
             if story_text.strip():
+                # Используем ту же сессию Ollama для подготовки промпта
+                async with aiohttp.ClientSession() as session:
+                    prompt_response = await session.post(
+                        "http://localhost:11434/api/generate",
+                        json={
+                            "model": OLLAMA_CONFIG["model"],
+                            "prompt": f"""Create a detailed image generation prompt that describes the key scene from this story segment.
+                            Focus on the most visually striking or emotionally significant moment.
+                            
+                            Guidelines:
+                            1. Describe the main visual elements (setting, characters, objects, lighting)
+                            2. Specify the atmosphere and mood
+                            3. Include artistic style keywords
+                            4. Keep it concise but descriptive
+                            5. Use only English language
+                            
+                            Format example:
+                            "A mysterious ancient library at twilight, rays of golden light streaming through dusty windows, 
+                            illuminating floating particles, leather-bound books on wooden shelves, 
+                            a solitary figure in a dark cloak examining an open tome, 
+                            dramatic lighting, mystical atmosphere, detailed illustration, cinematic composition"
+                            
+                            Story text to create prompt for: {story_text}""",
+                            "stream": False
+                        }
+                    )
+                    if prompt_response.status == 200:
+                        prompt_data = await prompt_response.json()
+                        illustration_prompt = "book illustration, detailed artistic scene, high quality, masterpiece, " + prompt_data["response"].strip()
+            
+            # Генерируем иллюстрацию с подготовленным промптом
+            illustration = None
+            if illustration_prompt:
                 illustration = await story_image_generator.generate_story_illustration({
                     'current_text': story_text,
-                    'current_chapter': current_chapter
+                    'current_chapter': current_chapter,
+                    'prompt_override': illustration_prompt
                 })
+                
+                # Выгружаем модель из GPU только после генерации изображения
+                await unload_model_from_gpu()
             
             # Добавляем маркер завершения и иллюстрацию в последний фрагмент
             yield {

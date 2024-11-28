@@ -89,10 +89,15 @@ class StoryImageGenerator:
         return prompt
 
     async def generate_story_illustration(self, context: Dict) -> Optional[str]:
-        """Генерирует иллюстрацию для текущего момента истории"""
+        """Генерирует иллюстрацию для текущего сегмента истории"""
         try:
-            # Подготавливаем промпт
-            prompt = await self._prepare_image_prompt(context)
+            # Используем готовый промпт если он есть, иначе генерируем из текста
+            if 'prompt_override' in context:
+                prompt = context['prompt_override']
+            else:
+                prompt = "book illustration, detailed artistic scene, high quality, masterpiece, " + context['current_text']
+            
+            logger.info(f"Подготовлен промпт для изображения: {prompt}")
             
             # Модифицируем workflow с нашим промптом
             workflow = comfy_config.modify_workflow(
