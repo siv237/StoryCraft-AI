@@ -422,10 +422,10 @@
             const imageWrapper = document.createElement("div");
             imageWrapper.className = "story-image-wrapper";
             
-            // Создаем и добавляем изображение
+            // Создаем изображение
             const img = document.createElement("img");
             img.className = "story-image";
-            img.src = imageData.content;
+            img.src = imageData.content;  // Теперь здесь base64 строка
             
             // Добавляем промпт под изображением
             const prompt = document.createElement("div");

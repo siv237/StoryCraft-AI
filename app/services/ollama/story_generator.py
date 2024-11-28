@@ -322,7 +322,7 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                     logger.info("[GENERATOR] >>> Отправляем сгенерированную иллюстрацию")
                     yield {
                         "type": "image",
-                        "content": f"http://127.0.0.1:8188/view?filename={illustration}",
+                        "content": illustration,  # Теперь здесь base64 строка
                         "prompt": illustration_prompt
                     }
                     logger.info("[GENERATOR] <<< Иллюстрация отправлена")

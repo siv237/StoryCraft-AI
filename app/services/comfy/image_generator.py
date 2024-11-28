@@ -5,6 +5,8 @@ from typing import Dict, Optional
 import logging
 from config.comfy_config import comfy_config
 from config.ollama_config import OLLAMA_CONFIG, PROMPT_CONFIG
+import base64
+import os
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -187,8 +189,21 @@ class StoryImageGenerator:
                                         image_data = outputs['9']
                                         if image_data and 'images' in image_data:
                                             image_path = image_data['images'][0]['filename']
-                                            logger.info(f"Изображение сгенерировано: {image_path}")
-                                            return image_path
+                                            
+                                            # Получаем изображение через API
+                                            try:
+                                                image_url = f"{comfy_config.base_url}/view?filename={image_path}"
+                                                async with session.get(image_url) as response:
+                                                    if response.status == 200:
+                                                        img_data = await response.read()
+                                                        base64_img = base64.b64encode(img_data).decode('utf-8')
+                                                        return f"data:image/png;base64,{base64_img}"
+                                                    else:
+                                                        logger.error(f"Ошибка при получении изображения: {response.status}")
+                                                        return None
+                                            except Exception as e:
+                                                logger.error(f"Ошибка при получении изображения: {e}")
+                                                return None
                                     break
                             
                         await asyncio.sleep(1)  # Пауза между проверками
