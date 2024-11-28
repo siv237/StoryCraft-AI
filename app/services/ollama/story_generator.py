@@ -245,27 +245,30 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                     "http://localhost:11434/api/generate",
                     json={
                         "model": OLLAMA_CONFIG["model"],
-                        "prompt": f"""Create a detailed image generation prompt in English for this story segment. 
-                        Focus on the main scene, mood, and key visual elements. Format: 'book illustration, detailed artistic scene, 
-                        high quality, masterpiece,' followed by the specific scene description.
+                        "prompt": f"""Create a summary of the scene in English, focusing on visual elements and atmosphere. 
+                        Include: location, lighting, main objects, and overall mood.
+                        Keep it under 30 words.
                         
-                        Story segment: {story_text}""",
-                        "stream": True
+                        Story text: {story_text}""",
+                        "stream": True,
+                        **OLLAMA_CONFIG['generation_params']
                     }
                 )
                 
                 if prompt_response.status == 200:
-                    illustration_prompt = ""
+                    response_text = ""
                     async for line in prompt_response.content:
                         if not line.strip():
                             continue
                         try:
                             data = json.loads(line)
                             if "response" in data:
-                                illustration_prompt += data["response"]
+                                response_text += data["response"]
                         except json.JSONDecodeError:
                             continue
                     
+                    # Очищаем и используем текст напрямую как промпт
+                    illustration_prompt = response_text.strip()
                     logger.info(f"[GENERATOR] Подготовлен промпт для изображения: {illustration_prompt}")
                     
                     # Генерируем иллюстрацию

@@ -20,10 +20,7 @@ class StoryImageGenerator:
         max_retries = OLLAMA_CONFIG['connection']['max_retries']
         retry_delay = OLLAMA_CONFIG['connection']['retry_delay']
         
-        system_prompt = """Create a very short scene description in English (2-3 sentences max) focusing only on:
-1. Location/setting
-2. Main character's appearance
-Ignore dialogue and detailed plot points."""
+        system_prompt = """Create a very short scene description in English"""
 
         for attempt in range(max_retries):
             try:
