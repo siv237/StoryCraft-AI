@@ -5,6 +5,7 @@ import re
 from typing import Dict, List
 from config.ollama_config import OLLAMA_CONFIG
 import logging
+from app.services.comfy.image_generator import story_image_generator
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -133,12 +134,21 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
             if buffer:
                 story_text += buffer
             
-            # Добавляем маркер завершения в последний фрагмент
+            # Генерируем иллюстрацию перед отправкой последнего фрагмента
+            illustration = None
+            if story_text.strip():
+                illustration = await story_image_generator.generate_story_illustration({
+                    'current_text': story_text,
+                    'current_chapter': current_chapter
+                })
+            
+            # Добавляем маркер завершения и иллюстрацию в последний фрагмент
             yield {
                 "text": story_text.strip() + " [DONE]",
                 "choices": [],
                 "chapter": current_chapter,
-                "done": True
+                "done": True,
+                "illustration": illustration
             }
 
     logger.info("Finished generating story segment")
