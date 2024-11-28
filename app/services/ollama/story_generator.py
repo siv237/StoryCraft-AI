@@ -11,17 +11,80 @@ from app.services.comfy.image_generator import story_image_generator
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# GPU Memory Management
+def cleanup_gpu():
+    """Force cleanup of GPU memory"""
+    import gc
+    gc.collect()
+    try:
+        # Перезапускаем Ollama сервис для освобождения GPU памяти
+        import subprocess
+        subprocess.run(["systemctl", "restart", "ollama"], check=True)
+        logger.info("Ollama service restarted to free GPU memory")
+    except Exception as e:
+        logger.warning(f"Failed to restart Ollama service: {e}")
+
+class ModelManager:
+    def __init__(self):
+        self.active_models = {}
+        self.model_params = {
+            "gpu_layers": 27,  # Количество слоев на GPU
+            "num_gpu": 1,      # Количество GPU
+            "gpu_memory_utilization": 0.8  # Процент использования памяти GPU
+        }
+    
+    def get_model(self, model_name):
+        """Get model with memory management"""
+        if model_name not in self.active_models:
+            try:
+                self.active_models[model_name] = client.load_model(
+                    model_name, 
+                    params=self.model_params
+                )
+            except Exception as e:
+                logger.error(f"Failed to load model {model_name}: {e}")
+                cleanup_gpu()  # Пробуем очистить память и загрузить снова
+                self.active_models[model_name] = client.load_model(
+                    model_name, 
+                    params=self.model_params
+                )
+                
+        return self.active_models[model_name]
+    
+    def unload_model(self, model_name):
+        """Explicitly unload a model"""
+        if model_name in self.active_models:
+            del self.active_models[model_name]
+            cleanup_gpu()
+
+model_manager = ModelManager()
+
 async def unload_model_from_gpu():
     """Выгружает модель из GPU без её удаления"""
     try:
         async with aiohttp.ClientSession() as session:
-            response = await session.post("http://localhost:11434/api/show")
+            response = await session.post(
+                "http://localhost:11434/api/generate",
+                json={
+                    "model": OLLAMA_CONFIG['model'],
+                    "prompt": "",
+                    "keep_alive": 0
+                }
+            )
             if response.status == 200:
-                logger.info(f"Модель {OLLAMA_CONFIG['model']} выгружена из GPU")
+                data = await response.json()
+                if data.get("done_reason") == "unload":
+                    logger.info(f"Модель {OLLAMA_CONFIG['model']} выгружена из GPU")
+                    return True
+                else:
+                    logger.warning(f"Неожиданный ответ при выгрузке модели: {data}")
+                    return False
             else:
                 logger.warning(f"Не удалось выгрузить модель из GPU: {await response.text()}")
+                return False
     except Exception as e:
         logger.warning(f"Ошибка при выгрузке модели из GPU: {e}")
+        return False
 
 async def generate_next_segment(choice: str, context: Dict) -> Dict:
     # Создаем краткое описание текущего состояния истории
@@ -147,8 +210,8 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
             if buffer:
                 story_text += buffer
             
-            # Сначала подготавливаем промпт для иллюстрации
-            illustration_prompt = None
+            # Генерируем промпт для иллюстрации
+            illustration = None
             if story_text.strip():
                 # Используем ту же сессию Ollama для подготовки промпта
                 async with aiohttp.ClientSession() as session:
@@ -156,41 +219,30 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                         "http://localhost:11434/api/generate",
                         json={
                             "model": OLLAMA_CONFIG["model"],
-                            "prompt": f"""Create a detailed image generation prompt that describes the key scene from this story segment.
-                            Focus on the most visually striking or emotionally significant moment.
+                            "prompt": f"""Create a detailed image generation prompt in English for this story segment. 
+                            Focus on the main scene, mood, and key visual elements. Format: 'book illustration, detailed artistic scene, 
+                            high quality, masterpiece,' followed by the specific scene description.
                             
-                            Guidelines:
-                            1. Describe the main visual elements (setting, characters, objects, lighting)
-                            2. Specify the atmosphere and mood
-                            3. Include artistic style keywords
-                            4. Keep it concise but descriptive
-                            5. Use only English language
-                            
-                            Format example:
-                            "A mysterious ancient library at twilight, rays of golden light streaming through dusty windows, 
-                            illuminating floating particles, leather-bound books on wooden shelves, 
-                            a solitary figure in a dark cloak examining an open tome, 
-                            dramatic lighting, mystical atmosphere, detailed illustration, cinematic composition"
-                            
-                            Story text to create prompt for: {story_text}""",
-                            "stream": False
+                            Story segment: {story_text}"""
                         }
                     )
                     if prompt_response.status == 200:
-                        prompt_data = await prompt_response.json()
-                        illustration_prompt = "book illustration, detailed artistic scene, high quality, masterpiece, " + prompt_data["response"].strip()
-            
-            # Генерируем иллюстрацию с подготовленным промптом
-            illustration = None
-            if illustration_prompt:
-                illustration = await story_image_generator.generate_story_illustration({
-                    'current_text': story_text,
-                    'current_chapter': current_chapter,
-                    'prompt_override': illustration_prompt
-                })
-                
-                # Выгружаем модель из GPU только после генерации изображения
-                await unload_model_from_gpu()
+                        illustration_prompt = await prompt_response.text()
+                        logger.info(f"Подготовлен промпт для изображения: {illustration_prompt}")
+                    
+                        # Выгружаем модель из GPU перед генерацией изображения
+                        try:
+                            if await unload_model_from_gpu():
+                                logger.info("Модель успешно выгружена из GPU")
+                            
+                                # Генерируем иллюстрацию только после успешной выгрузки модели
+                                illustration = await story_image_generator.generate_story_illustration({
+                                    'current_text': story_text,
+                                    'current_chapter': current_chapter,
+                                    'prompt': illustration_prompt
+                                })
+                        except Exception as e:
+                            logger.warning(f"Не удалось выгрузить модель из GPU: {e}")
             
             # Добавляем маркер завершения и иллюстрацию в последний фрагмент
             yield {
