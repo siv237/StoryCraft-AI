@@ -19,7 +19,7 @@ class ComfyUIConfig:
             "3": {
                 "inputs": {
                     "seed": 92494398233826,
-                    "steps": 7,          # Уменьшили количество шагов для экономии памяти
+                    "steps": 20,          # Уменьшили количество шагов для экономии памяти
                     "cfg": 7,
                     "sampler_name": "euler_ancestral",
                     "scheduler": "karras",
@@ -36,7 +36,7 @@ class ComfyUIConfig:
             },
             "4": {
                 "inputs": {
-                    "ckpt_name": "flat2DAnimerge_v45Sharp.safetensors"  # Аниме-стиль модель
+                    "ckpt_name": "epicrealism_naturalSinRC1VAE.safetensors"  # Аниме-стиль модель
                 },
                 "class_type": "CheckpointLoaderSimple",
                 "_meta": {
@@ -45,7 +45,7 @@ class ComfyUIConfig:
             },
             "5": {
                 "inputs": {
-                    "width": 384,         # Уменьшили разрешение
+                    "width": 800,         # Уменьшили разрешение
                     "height": 384,
                     "batch_size": 1
                 },

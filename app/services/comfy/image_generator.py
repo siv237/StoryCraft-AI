@@ -16,17 +16,22 @@ class StoryImageGenerator:
         pass
         
     async def _translate_to_english(self, text: str, session: aiohttp.ClientSession) -> str:
-        """Переводит текст на английский язык используя Ollama"""
+        """Переводит текст на английский язык и создает краткое описание сцены"""
         max_retries = OLLAMA_CONFIG['connection']['max_retries']
         retry_delay = OLLAMA_CONFIG['connection']['retry_delay']
         
+        system_prompt = """Create a very short scene description in English (2-3 sentences max) focusing only on:
+1. Location/setting
+2. Main character's appearance
+Ignore dialogue and detailed plot points."""
+
         for attempt in range(max_retries):
             try:
                 async with session.post(
                     f"{OLLAMA_CONFIG['base_url']}/api/generate",
                     json={
                         "model": OLLAMA_CONFIG['model'],
-                        "system": PROMPT_CONFIG['translator_context'],
+                        "system": system_prompt,
                         "prompt": text,
                         **OLLAMA_CONFIG['generation_params'],
                         "stream": True
@@ -63,30 +68,20 @@ class StoryImageGenerator:
 
     def _fallback_translation(self, text: str) -> str:
         """Резервный метод перевода - простая обработка текста для генерации изображения"""
-        # Удаляем специальные символы и маркеры
-        text = text.replace('**', '').replace('[DONE]', '').strip()
-        # Добавляем базовые дескрипторы для улучшения генерации
-        return f"scene with characters, story illustration, {text}"
-
-    def _extract_scene_description(self, text: str) -> str:
-        """Извлекает описание сцены из текста"""
-        # Разбиваем на предложения и берем последние 2-3
-        sentences = [s.strip() for s in text.split('.') if s.strip()]
-        relevant_sentences = sentences[-3:] if len(sentences) > 3 else sentences
-        return '. '.join(relevant_sentences)
+        # Возвращаем самое базовое описание
+        return "character in a room, story scene"
 
     async def _prepare_image_prompt(self, context: Dict, session: aiohttp.ClientSession) -> str:
         """Подготавливает промпт для генерации изображения на основе контекста истории"""
-        # Получаем текущий текст и описание сцены
+        # Получаем текущий текст
         current_text = context.get('current_text', '')
-        scene_description = self._extract_scene_description(current_text)
         
-        # Переводим на английский
-        eng_context = await self._translate_to_english(scene_description, session)
+        # Получаем краткое описание на английском
+        eng_description = await self._translate_to_english(current_text, session)
         
         # Формируем промпт для изображения
-        base_prompt = "book illustration, detailed artistic scene, high quality, masterpiece"
-        prompt = f"{base_prompt}, {eng_context}"
+        base_prompt = "anime style, high quality illustration"
+        prompt = f"{base_prompt}, {eng_description}"
         
         logger.info(f"Подготовлен промпт для изображения: {prompt}")
         return prompt
@@ -138,20 +133,10 @@ class StoryImageGenerator:
                 need_close = False
 
             try:
-                # Подготавливаем промпт
-                prompt = await self._prepare_image_prompt(context, session)
-
-                # Выгружаем Ollama перед генерацией изображения
-                async with session.post(
-                    f"{OLLAMA_CONFIG['base_url']}/api/generate",
-                    json={
-                        "model": OLLAMA_CONFIG['model'],
-                        "prompt": "",
-                        "keep_alive": 0
-                    }
-                ) as response:
-                    if response.status == 200:
-                        logger.info("Модель Ollama выгружена перед генерацией изображения")
+                # Используем готовый промпт из контекста
+                prompt = context.get('prompt', 'character in a room, story scene')
+                base_prompt = "anime style, high quality illustration"
+                full_prompt = f"{base_prompt}, {prompt}"
                 
                 # Проверяем доступную память GPU
                 async with session.get(f"{comfy_config.base_url}/system_stats") as response:
@@ -172,7 +157,7 @@ class StoryImageGenerator:
             
                 # Модифицируем workflow с нашим промптом
                 workflow = comfy_config.modify_workflow(
-                    prompt=prompt,
+                    prompt=full_prompt,
                     seed=None,  # Используем случайный сид для разнообразия
                     width=384,  # Уменьшенный размер для экономии памяти
                     height=384

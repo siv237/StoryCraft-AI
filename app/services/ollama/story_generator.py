@@ -87,19 +87,27 @@ async def unload_model_from_gpu():
         return False
 
 async def generate_next_segment(choice: str, context: Dict) -> Dict:
+    logger.info("[GENERATOR] >>> Начинаем генерацию нового сегмента")
+    logger.info(f"[GENERATOR] Выбор пользователя: {choice}")
+    
     # Сначала выгружаем модели ComfyUI чтобы освободить память для Ollama
+    logger.info("[GENERATOR] >>> Выгружаем модели ComfyUI")
     await story_image_generator._unload_all_models()
+    logger.info("[GENERATOR] <<< Модели ComfyUI выгружены")
 
     # Создаем краткое описание текущего состояния истории
+    logger.info("[GENERATOR] >>> Формируем состояние истории")
     story_state = "\\n".join([
         f"Текущая глава: {context['current_chapter']}",
         f"Последние выборы:",
         *[f"- {c}" for c in context['previous_choices'][-3:]],
         f"\\nТекущий выбор: {choice}"
     ])
+    logger.info("[GENERATOR] <<< Состояние истории сформировано")
 
     # Специальный промпт для первой главы
     if choice == "начало истории":
+        logger.info("[GENERATOR] Используем промпт для первой главы")
         system_prompt = """Ты - талантливый писатель, мастер художественного описания, создающий захватывающие интерактивные истории.
         Твоя задача - создать яркое, детальное и атмосферное начало истории, которое полностью погрузит читателя в мир повествования.
         
@@ -136,6 +144,7 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
         главного героя и ситуации, в которой он оказался."""
     else:
         # Обычный промпт для продолжения истории
+        logger.info("[GENERATOR] Используем промпт для продолжения истории")
         system_prompt = """Ты - опытный писатель, создающий захватывающую интерактивную историю в литературном стиле.
         Твоя задача - продолжить повествование, основываясь на предыдущем контексте и выборе читателя.
         
@@ -156,8 +165,7 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
         Пожалуйста, продолжи историю, учитывая все предыдущие события и последний выбор читателя."""
 
     logger.info(f"Story state:\n{story_state}")
-    logger.info("Sending request to Ollama with user choice and context")
-
+    logger.info("[GENERATOR] >>> Отправляем запрос к Ollama")
     async with aiohttp.ClientSession() as session:
         async with session.post(
             "http://localhost:11434/api/generate",
@@ -167,6 +175,7 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                 "stream": True
             }
         ) as response:
+            logger.info("[GENERATOR] >>> Получен ответ от Ollama, начинаем стриминг")
             story_text = ""
             buffer = ""
             current_chapter = context.get("current_chapter", 1)
@@ -190,11 +199,13 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                             buffer.rfind("!"),
                             buffer.rfind("?")
                         )
+                        
                         if sentence_end_idx > -1:
                             complete_sentence = buffer[:sentence_end_idx + 1]
                             story_text += complete_sentence + " "
                             buffer = buffer[sentence_end_idx + 1:].lstrip()
                             
+                            logger.info("[GENERATOR] >>> Отправляем новое предложение")
                             # Отправляем только новое предложение
                             yield {
                                 "text": story_text.strip(),
@@ -202,20 +213,33 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                                 "chapter": current_chapter,
                                 "done": False
                             }
+                            logger.info("[GENERATOR] <<< Предложение отправлено")
                     
                 except json.JSONDecodeError:
                     continue
                 except Exception as e:
-                    logger.error(f"Error processing response: {e}")
+                    logger.error(f"[GENERATOR] !!! Ошибка обработки ответа: {e}")
                     continue
             
+            logger.info("[GENERATOR] >>> Стриминг завершен, обрабатываем остаток")
             # Отправляем оставшийся текст в буфере, если он есть
             if buffer:
                 story_text += buffer
             
-            # Генерируем промпт для иллюстрации
+            logger.info("[GENERATOR] >>> Отправляем финальный фрагмент")
+            # Сначала отправляем финальный фрагмент текста без иллюстрации
+            yield {
+                "text": story_text.strip() + " [DONE]",
+                "choices": [],
+                "chapter": current_chapter,
+                "done": True
+            }
+            logger.info("[GENERATOR] <<< Финальный фрагмент отправлен")
+            
+            # Теперь генерируем промпт для иллюстрации
             illustration = None
             if story_text.strip():
+                logger.info("[GENERATOR] >>> Начинаем генерацию промпта для иллюстрации")
                 # Используем ту же сессию Ollama для подготовки промпта и перевода
                 prompt_response = await session.post(
                     "http://localhost:11434/api/generate",
@@ -242,8 +266,8 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                         except json.JSONDecodeError:
                             continue
                     
-                    logger.info(f"Подготовлен промпт для изображения: {illustration_prompt}")
-                
+                    logger.info(f"[GENERATOR] Подготовлен промпт для изображения: {illustration_prompt}")
+                    
                     # Генерируем иллюстрацию
                     illustration = await story_image_generator.generate_story_illustration({
                         'current_text': story_text,
@@ -251,14 +275,14 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                         'prompt': illustration_prompt,
                         'session': session  # Передаем сессию в генератор изображений
                     })
+                    
+                    if illustration:
+                        logger.info("[GENERATOR] >>> Отправляем сгенерированную иллюстрацию")
+                        yield {
+                            "type": "image",
+                            "content": f"http://127.0.0.1:8188/view?filename={illustration}",
+                            "prompt": illustration_prompt
+                        }
+                        logger.info("[GENERATOR] <<< Иллюстрация отправлена")
             
-            # Добавляем маркер завершения и иллюстрацию в последний фрагмент
-            yield {
-                "text": story_text.strip() + " [DONE]",
-                "choices": [],
-                "chapter": current_chapter,
-                "done": True,
-                "illustration": illustration
-            }
-
-    logger.info("Finished generating story segment")
+            logger.info("[GENERATOR] <<< Генерация сегмента завершена")
