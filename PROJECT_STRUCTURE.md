@@ -4,41 +4,45 @@
 
 ```
 comfyuigen/
-├── app/                      # Основной код приложения
-│   ├── api/                  # API endpoints
-│   │   └── routes/          # Маршруты FastAPI
-│   ├── services/            # Сервисные модули
-│   │   ├── ollama/         # Сервис генерации текста
-│   │   │   ├── prompts/    # Промпты для разных задач
-│   │   │   └── story_generator.py  # Основной генератор историй
-│   │   └── comfy/          # Сервис генерации изображений
-│   └── websocket/          # WebSocket обработчики
+├── app/                                # Основной код приложения
+│   ├── api/                           # API endpoints
+│   │   └── routes/                    # Маршруты FastAPI
+│   ├── services/                      # Сервисные модули
+│   │   ├── ollama/                    # Сервис генерации текста
+│   │   │   ├── prompts/              # Промпты для разных задач
+│   │   │   └── story_generator.py     # Основной генератор историй
+│   │   └── comfy/                     # Сервис генерации изображений
+│   └── websocket/                     # WebSocket обработчики
 │
-├── config/                  # Конфигурационные файлы
-│   ├── ollama_config.py    # Настройки Ollama
-│   └── comfy_config.py     # Настройки ComfyUI
+├── config/                            # Конфигурационные файлы
+│   ├── ollama_config.py              # Настройки Ollama
+│   └── comfy_config.py               # Настройки ComfyUI
 │
-├── static/                 # Статические файлы
-│   ├── css/               # Стили
-│   └── js/               # JavaScript файлы
-│       ├── main.js       # Основной клиентский код
-│       └── websocket/    # WebSocket клиент
+├── static/                           # Статические файлы
+│   ├── css/                         # Стили
+│   └── js/                          # JavaScript файлы
+│       ├── main.js                  # Основной клиентский код
+│       └── websocket/               # WebSocket клиент
 │
-├── templates/             # HTML шаблоны
-│   └── index.html        # Основной интерфейс
+├── templates/                        # HTML шаблоны
+│   └── index.html                   # Основной интерфейс
 │
-├── tests/                # Тесты
-│   └── test_comfy_config.py  # Тесты конфигурации ComfyUI
+├── tests/                           # Тесты
+│   ├── unit/                        # Модульные тесты
+│   └── integration/                 # Интеграционные тесты
 │
-├── utils/               # Вспомогательные утилиты
+├── requirements/                     # Зависимости проекта
+│   ├── base.txt                     # Базовые зависимости
+│   ├── dev.txt                      # Зависимости для разработки
+│   └── test.txt                     # Зависимости для тестирования
 │
-├── main.py             # Точка входа приложения
-├── ALGORITHM.md        # Описание алгоритма работы
-├── README.md          # Общая информация о проекте
-└── requirements/      # Зависимости проекта
-    ├── base.txt      # Базовые зависимости
-    ├── dev.txt       # Зависимости для разработки
-    └── prod.txt      # Продакшн зависимости
+├── .env.example                     # Пример конфигурации окружения
+├── .gitignore                       # Игнорируемые Git файлы
+├── ALGORITHM.md                     # Описание алгоритма работы
+├── LICENSE                          # Лицензия проекта
+├── PROJECT_STRUCTURE.md             # Этот файл
+├── README.md                        # Основная документация
+└── main.py                          # Точка входа приложения
 ```
 
 ## Описание ключевых компонентов
@@ -67,4 +71,4 @@ comfyuigen/
 ### Зависимости
 - **requirements/base.txt** - Основные пакеты
 - **requirements/dev.txt** - Инструменты разработки
-- **requirements/prod.txt** - Продакшн зависимости
+- **requirements/test.txt** - Зависимости для тестирования
