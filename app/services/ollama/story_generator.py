@@ -175,11 +175,12 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
     logger.info("[GENERATOR] >>> Отправляем запрос к Ollama")
     async with aiohttp.ClientSession() as session:
         async with session.post(
-            "http://localhost:11434/api/generate",
+            f"{OLLAMA_CONFIG['base_url']}/api/generate",
             json={
-                "model": "gemma2:latest",
+                "model": OLLAMA_CONFIG["model"],
                 "prompt": f"System: {system_prompt}\n\nUser: {user_prompt}",
-                "stream": True
+                "stream": True,
+                **OLLAMA_CONFIG["generation_params"]
             }
         ) as response:
             logger.info("[GENERATOR] >>> Получен ответ от Ollama, начинаем стриминг")
@@ -269,12 +270,13 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                     
                     for attempt in range(max_attempts):
                         prompt_response = await session.post(
-                            "http://localhost:11434/api/generate",
+                            f"{OLLAMA_CONFIG['base_url']}/api/generate",
                             json={
                                 "model": OLLAMA_CONFIG["model"],
                                 "prompt": f"""Create a summary of the scene in English, focusing ONLY on visual elements and atmosphere. 
                                 Include: location, lighting, main objects, and overall mood.
                                 Keep it under 30 words.
+                                
                                 IMPORTANT: 
                                 - Response must be in English only!
                                 - Describe ONLY what can be seen in the scene
@@ -282,8 +284,8 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                                 - NO numbered lists or choices
                                 
                                 Story text: {cleaned_text}""",
-                                "stream": True,
-                                **OLLAMA_CONFIG['generation_params']
+                                "stream": False,
+                                **OLLAMA_CONFIG["generation_params"]
                             }
                         )
                         
