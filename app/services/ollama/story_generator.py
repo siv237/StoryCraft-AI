@@ -173,15 +173,27 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
 
     logger.info(f"Story state:\n{story_state}")
     logger.info("[GENERATOR] >>> Отправляем запрос к Ollama")
+    request_params = {
+        "model": OLLAMA_CONFIG["model"],
+        "prompt": f"System: {system_prompt}\n\nUser: {user_prompt}",
+        "stream": True,
+        "options": {
+            "seed": OLLAMA_CONFIG["generation_params"]["seed"],
+            "temperature": OLLAMA_CONFIG["generation_params"]["temperature"],
+            "top_p": OLLAMA_CONFIG["generation_params"]["top_p"],
+            "top_k": OLLAMA_CONFIG["generation_params"]["top_k"],
+            "num_predict": OLLAMA_CONFIG["generation_params"]["num_predict"],
+            "stop": OLLAMA_CONFIG["generation_params"]["stop"],
+            "repeat_last_n": OLLAMA_CONFIG["generation_params"]["repeat_last_n"],
+            "repeat_penalty": OLLAMA_CONFIG["generation_params"]["repeat_penalty"],
+        }
+    }
+    logger.info(f"[GENERATOR] Параметры запроса: {json.dumps(request_params, indent=2, ensure_ascii=False)}")
+    
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"{OLLAMA_CONFIG['base_url']}/api/generate",
-            json={
-                "model": OLLAMA_CONFIG["model"],
-                "prompt": f"System: {system_prompt}\n\nUser: {user_prompt}",
-                "stream": True,
-                **OLLAMA_CONFIG["generation_params"]
-            }
+            json=request_params
         ) as response:
             logger.info("[GENERATOR] >>> Получен ответ от Ollama, начинаем стриминг")
             story_text = ""

@@ -8,10 +8,16 @@ OLLAMA_CONFIG = {
     # Параметры генерации
     "generation_params": {
         "temperature": 0.05,      # Креативность генерации (0.0 - 1.0)
-        "top_p": 0.9,           # Разнообразие выборки токенов
-        "top_k": 40,            # Количество токенов для выборки
-        "num_predict": 5000,    # Максимальное количество токенов для генерации
-        "stop": ["[/INST]"],    # Стоп-токены
+        "top_p": 0.9,            # Разнообразие выборки токенов
+        "top_k": 40,             # Количество токенов для выборки
+        "seed": 42,              # Фиксированный сид для воспроизводимости
+        "num_ctx": 4096,         # Размер контекста
+        "num_predict": 5000,     # Максимальное количество токенов для генерации
+        "stop": ["[/INST]"],     # Стоп-токены
+        "repeat_last_n": 64,     # Размер окна для предотвращения повторений
+        "repeat_penalty": 1.1,   # Штраф за повторения
+        "tfs_z": 1,              # Tail free sampling
+        "num_threads": 8         # Количество потоков
     },
     
     # Параметры подключения
@@ -61,8 +67,14 @@ def get_generation_params() -> Dict[str, Any]:
         "temperature": OLLAMA_CONFIG["generation_params"]["temperature"],
         "top_p": OLLAMA_CONFIG["generation_params"]["top_p"],
         "top_k": OLLAMA_CONFIG["generation_params"]["top_k"],
+        "seed": OLLAMA_CONFIG["generation_params"]["seed"],
+        "num_ctx": OLLAMA_CONFIG["generation_params"]["num_ctx"],
         "num_predict": OLLAMA_CONFIG["generation_params"]["num_predict"],
         "stop": OLLAMA_CONFIG["generation_params"]["stop"],
+        "repeat_last_n": OLLAMA_CONFIG["generation_params"]["repeat_last_n"],
+        "repeat_penalty": OLLAMA_CONFIG["generation_params"]["repeat_penalty"],
+        "tfs_z": OLLAMA_CONFIG["generation_params"]["tfs_z"],
+        "num_threads": OLLAMA_CONFIG["generation_params"]["num_threads"],
     }
 
 def get_connection_params() -> Dict[str, Any]:
