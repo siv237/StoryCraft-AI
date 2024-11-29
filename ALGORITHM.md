@@ -23,8 +23,34 @@
      * Конфигурация CORS и middleware
    - Настройка WebSocket для real-time коммуникации
    - Загрузка конфигураций:
-     * `config/ollama_config.py` - настройки Ollama
-     * `config/comfy_config.py` - настройки ComfyUI
+     * `config/ollama_config.py`:
+       - model: модель для генерации текста
+       - host: адрес API Ollama
+       - system_prompts:
+         + story_generation.py - основной промпт для генерации историй
+         + image_description.py - промпт для описания сцен
+         + choice_generation.py - промпт для генерации выборов
+       - parameters:
+         + num_predict: максимальное количество токенов для генерации
+         + temperature: параметр креативности генерации
+         + top_k: количество лучших токенов для выбора
+         + top_p: порог вероятности для выбора токенов
+         + repeat_penalty: штраф за повторение слов
+     * `config/comfy_config.py`:
+       - host: адрес API ComfyUI
+       - workflow: файл с настройками рабочего процесса
+       - models:
+         + checkpoint: основная модель для генерации
+         + vae: модель для кодирования/декодирования изображений
+         + lora: дополнительная модель для улучшения деталей
+       - parameters:
+         + seed: зерно для воспроизводимости результатов
+         + steps: количество шагов генерации
+         + cfg: сила следования промпту
+         + sampler_name: алгоритм сэмплирования
+         + scheduler: тип планировщика шагов
+         + denoise: сила шумоподавления
+         + style_preset: базовый стиль изображения
    - Проверка доступности сервисов:
      * Ollama API
      * ComfyUI API
@@ -43,6 +69,19 @@
 ### 2. Генерация истории
 1. **Фаза стриминга текста** (`app/services/ollama/story_generator.py`)
    - Формирование системного промпта:
+     * Модули с промптами (`app/services/ollama/prompts/`):
+       + story_generation.py:
+         - MAIN_PROMPT - основной промпт для сюжета
+         - CHAPTER_START - начало новой главы
+         - STORY_CONTINUATION - продолжение истории
+       + choice_generation.py:
+         - CHOICE_FORMAT - формат генерации выборов
+         - CHOICE_COUNT - количество вариантов
+         - CHOICE_RULES - правила для выборов
+       + image_description.py:
+         - SCENE_EXTRACTION - выделение описания сцены
+         - STYLE_GUIDELINES - стилистические указания
+         - VISUAL_DETAILS - детали для визуализации
      * Инструкции для стиля повествования
      * Требования к структуре текста
      * Правила формирования выборов
