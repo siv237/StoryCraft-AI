@@ -284,21 +284,21 @@
             // Ищем варианты выбора по обоим форматам (* и цифры)
             const parts = text.split(/(?=\s*[\*\d][\.\)]\s+|\s+\*\s+)/);
             
+            // Заменяем только текущий поток текста
+            const fullText = storyContainer.innerHTML;
+            const newText = fullText.substring(0, currentStreamStart) + marked.parse(parts[0]);
+            storyContainer.innerHTML = newText;
+            
+            // Создаем фрагмент для кнопок
+            const buttonsFragment = document.createDocumentFragment();
+            
+            // Если есть варианты выбора, добавляем их
             if (parts.length > 1) {
-                // Первая часть - это текст истории
-                const storyText = parts[0];
                 // Остальные части - варианты выбора
                 const choices = parts.slice(1).map(choice => 
                     choice.replace(/^\s*(?:\*\s+|\d+[\.\)]\s+)/, '').trim() // Убираем маркеры
                 );
                 
-                // Заменяем только текущий поток текста
-                const fullText = storyContainer.innerHTML;
-                const newText = fullText.substring(0, currentStreamStart) + marked.parse(storyText);
-                storyContainer.innerHTML = newText;
-                
-                // Создаем кнопки для вариантов
-                const buttonsFragment = document.createDocumentFragment();
                 choices.forEach(choice => {
                     if (choice.trim()) {  // Проверяем, что вариант не пустой
                         const button = document.createElement('button');
@@ -308,23 +308,19 @@
                         buttonsFragment.appendChild(button);
                     }
                 });
-
-                // Добавляем кнопку для пользовательского выбора
-                const customChoiceToggle = document.createElement('button');
-                customChoiceToggle.classList.add('custom-choice-toggle', 'fade-in');
-                customChoiceToggle.textContent = "Предложить свой вариант...";
-                customChoiceToggle.onclick = toggleCustomChoice;
-                buttonsFragment.appendChild(customChoiceToggle);
-                
-                choicesContainer.innerHTML = '';
-                choicesContainer.appendChild(buttonsFragment);
-                document.getElementById('custom-choice').style.display = 'none';
-            } else {
-                // Заменяем только текущий поток текста
-                const fullText = storyContainer.innerHTML;
-                const newText = fullText.substring(0, currentStreamStart) + marked.parse(text);
-                storyContainer.innerHTML = newText;
             }
+            
+            // Всегда добавляем кнопку для пользовательского выбора
+            const customChoiceToggle = document.createElement('button');
+            customChoiceToggle.classList.add('custom-choice-toggle', 'fade-in');
+            customChoiceToggle.textContent = "Предложить свой вариант...";
+            customChoiceToggle.onclick = toggleCustomChoice;
+            buttonsFragment.appendChild(customChoiceToggle);
+            
+            // Очищаем и добавляем все кнопки
+            choicesContainer.innerHTML = '';
+            choicesContainer.appendChild(buttonsFragment);
+            document.getElementById('custom-choice').style.display = 'none';
         }
 
         // Функция для переключения отображения поля пользовательского выбора
