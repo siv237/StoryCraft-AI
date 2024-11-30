@@ -283,24 +283,57 @@
             color: #333;
         }
 
-        .context-content {
-            margin-top: 20px;
+        .context-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
         }
 
-        .context-content h3 {
-            color: #2c3e50;
-            margin-top: 20px;
-            margin-bottom: 10px;
+        .context-item {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 10px;
+            margin: 5px 0;
+            align-items: start;
         }
 
-        .context-content p {
-            color: #666;
-            line-height: 1.6;
+        .context-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .context-value {
+            color: #212529;
+        }
+
+        .timeline-event {
+            padding: 8px 0;
+            border-left: 2px solid #6c757d;
+            margin-left: 10px;
+            padding-left: 15px;
+            position: relative;
+        }
+
+        .timeline-event:before {
+            content: "";
+            position: absolute;
+            left: -5px;
+            top: 15px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6c757d;
         }
 
         .empty-state {
-            color: #999;
+            color: #6c757d;
             font-style: italic;
+            padding: 10px;
+            text-align: center;
+            background: #f8f9fa;
+            border-radius: 4px;
             margin: 10px 0;
         }
     </style>
@@ -329,24 +362,21 @@
             <span class="close-button">&times;</span>
             <h2>Контекст истории</h2>
             <div class="context-content">
-                <div id="characters-section">
-                    <h3>Персонажи:</h3>
+                <div class="context-section">
+                    <h3>Персонажи</h3>
                     <div id="characters-list">
-                        <p class="empty-state">История еще не началась...</p>
                     </div>
                 </div>
                 
-                <div id="timeline-section">
-                    <h3>Ключевые события:</h3>
+                <div class="context-section">
+                    <h3>Ключевые события</h3>
                     <div id="timeline-list">
-                        <p class="empty-state">Пока ничего не произошло...</p>
                     </div>
                 </div>
                 
-                <div id="current-state-section">
-                    <h3>Текущее состояние:</h3>
+                <div class="context-section">
+                    <h3>Текущее состояние</h3>
                     <div id="current-state-info">
-                        <p class="empty-state">Ожидание начала истории...</p>
                     </div>
                 </div>
             </div>
@@ -602,23 +632,35 @@
                 const currentStateInfo = document.getElementById('current-state-info');
 
                 // Обновляем персонажей
-                charactersList.innerHTML = data.content.characters.length ? 
-                    data.content.characters.join('<br>') : 
-                    '<p class="empty-state">История еще не началась...</p>';
+                const characterData = {
+                    'Пол': data.content.current_state.gender || '-',
+                    'Возраст': data.content.current_state.age || 'неизвестно',
+                    'Имя': data.content.current_state.name || '-'
+                };
+                
+                charactersList.innerHTML = Object.entries(characterData)
+                    .map(([key, value]) => `<div class="context-item"><span class="context-label">${key}:</span><span class="context-value">${value}</span></div>`)
+                    .join('') || '<div class="empty-state">История еще не началась...</div>';
 
                 // Обновляем хронологию
                 timelineList.innerHTML = data.content.timeline.length ?
-                    data.content.timeline.join('<br>') :
-                    '<p class="empty-state">Пока ничего не произошло...</p>';
+                    data.content.timeline.map(event => `<div class="timeline-event">${event}</div>`).join('') :
+                    '<div class="empty-state">Пока ничего не произошло...</div>';
 
                 // Обновляем текущее состояние
+                const stateLabels = {
+                    'location': 'Локация',
+                    'scene': 'Сцена',
+                    'goal': 'Цель'
+                };
+                
                 const stateEntries = Object.entries(data.content.current_state)
-                    .filter(([_, value]) => value !== null && value !== undefined)
-                    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`);
+                    .filter(([key, value]) => ['location', 'scene', 'goal'].includes(key) && value !== null && value !== undefined)
+                    .map(([key, value]) => `<div class="context-item"><span class="context-label">${stateLabels[key]}:</span><span class="context-value">${value}</span></div>`);
                 
                 currentStateInfo.innerHTML = stateEntries.length ?
                     stateEntries.join('') :
-                    '<p class="empty-state">Ожидание начала истории...</p>';
+                    '<div class="empty-state">Ожидание начала истории...</div>';
             } else if (data.type === 'image') {
                 processImage(data);
             }
