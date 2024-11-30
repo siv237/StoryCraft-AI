@@ -638,29 +638,45 @@
                     'Имя': data.content.current_state.name || '-'
                 };
                 
+                const hasStoryStarted = data.content.timeline.some(event => 
+                    !event.toLowerCase().includes('история еще не началась'));
+                
                 charactersList.innerHTML = Object.entries(characterData)
                     .map(([key, value]) => `<div class="context-item"><span class="context-label">${key}:</span><span class="context-value">${value}</span></div>`)
-                    .join('') || '<div class="empty-state">История еще не началась...</div>';
+                    .join('') || (hasStoryStarted ? '' : '<div class="empty-state">История еще не началась...</div>');
 
                 // Обновляем хронологию
                 timelineList.innerHTML = data.content.timeline.length ?
-                    data.content.timeline.map(event => `<div class="timeline-event">${event}</div>`).join('') :
-                    '<div class="empty-state">Пока ничего не произошло...</div>';
+                    data.content.timeline
+                        .filter(event => !event.toLowerCase().includes('история еще не началась'))
+                        .map(event => `<div class="timeline-event">${event}</div>`)
+                        .join('') || '<div class="empty-state">Пока ничего не произошло...</div>' :
+                    '<div class="empty-state">История еще не началась...</div>';
 
                 // Обновляем текущее состояние
                 const stateLabels = {
-                    'location': 'Локация',
-                    'scene': 'Сцена',
-                    'goal': 'Цель'
+                    'current_location': 'Локация',
+                    'current_scene': 'Сцена',
+                    'current_goal': 'Цель'
                 };
                 
-                const stateEntries = Object.entries(data.content.current_state)
-                    .filter(([key, value]) => ['location', 'scene', 'goal'].includes(key) && value !== null && value !== undefined)
-                    .map(([key, value]) => `<div class="context-item"><span class="context-label">${stateLabels[key]}:</span><span class="context-value">${value}</span></div>`);
+                const stateEntries = [];
+                
+                // Сначала добавляем локацию, если она есть
+                if (data.content.current_state.current_location) {
+                    stateEntries.push(`<div class="context-item"><span class="context-label">Локация:</span><span class="context-value">${data.content.current_state.current_location}</span></div>`);
+                }
+                
+                // Добавляем остальные поля состояния
+                Object.entries(data.content.current_state)
+                    .filter(([key, value]) => ['current_scene', 'current_goal'].includes(key) && value !== null && value !== undefined)
+                    .forEach(([key, value]) => {
+                        stateEntries.push(`<div class="context-item"><span class="context-label">${stateLabels[key]}:</span><span class="context-value">${value}</span></div>`);
+                    });
                 
                 currentStateInfo.innerHTML = stateEntries.length ?
                     stateEntries.join('') :
-                    '<div class="empty-state">Ожидание начала истории...</div>';
+                    (data.content.timeline.length ? '<div class="empty-state">Информация обновляется...</div>' : '<div class="empty-state">Ожидание начала истории...</div>');
             } else if (data.type === 'image') {
                 processImage(data);
             }

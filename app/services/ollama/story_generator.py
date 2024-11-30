@@ -435,20 +435,24 @@ async def update_story_context(text: str, choice: str, story_context: dict) -> d
     if context["character"]["name"]:
         story_context["current_state"]["name"] = context["character"]["name"]
     
-    # Обновляем локацию
-    if context["location"]:
-        story_context["current_state"]["location"] = context["location"]
+    # Обновляем локацию если она определена
+    if context.get("location"):
+        story_context["current_state"]["current_location"] = context["location"]
     
     # Добавляем события в хронологию
     if context["events"]:
-        story_context["timeline"].extend(context["events"])
+        # Фильтруем события, убирая дубликаты и пустые значения
+        new_events = [event for event in context["events"] 
+                     if event and event not in story_context["timeline"]]
+        if new_events:
+            story_context["timeline"].extend(new_events)
     
     # Добавляем выбор в хронологию, если он был сделан
     if choice and choice != "Начать историю":
         story_context["timeline"].append(f"Выбор: {choice}")
 
     # Обновляем текущее состояние
-    story_context["current_state"]["scene"] = "Развитие истории"
-    story_context["current_state"]["goal"] = "Продолжить приключение"
+    story_context["current_state"]["current_scene"] = "Развитие истории"
+    story_context["current_state"]["current_goal"] = "Продолжить приключение"
 
     return story_context
