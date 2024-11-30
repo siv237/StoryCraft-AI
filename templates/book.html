@@ -238,6 +238,57 @@
             color: #666;
             font-style: italic;
         }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 1001;
+        }
+
+        .modal-content {
+            position: relative;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            margin: 50px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .close-button {
+            position: absolute;
+            right: 20px;
+            top: 10px;
+            font-size: 30px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .close-button:hover {
+            color: #333;
+        }
+
+        .context-content {
+            margin-top: 20px;
+        }
+
+        .context-content h3 {
+            color: #2c3e50;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .context-content p {
+            color: #666;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -258,6 +309,25 @@
     </div>
 
     <div id="text-buffer"></div>
+
+    <div id="contextModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Контекст истории</h2>
+            <div class="context-content">
+                <h3>Основные персонажи:</h3>
+                <p>Храбрый рыцарь Артур, принцесса Елена, мудрый волшебник Мерлин</p>
+                
+                <h3>Текущая локация:</h3>
+                <p>Таинственный лес на границе Темного королевства</p>
+                
+                <h3>Важные события:</h3>
+                <p>- Артур получил магический меч<br>
+                   - Принцесса была похищена драконом<br>
+                   - Мерлин раскрыл древнее пророчество</p>
+            </div>
+        </div>
+    </div>
 
     <script>
         marked.setOptions({
@@ -520,6 +590,22 @@
                 behavior: 'smooth'
             });
         };
+
+        document.getElementById('showContextBtn').addEventListener('click', function() {
+            document.getElementById('contextModal').style.display = 'block';
+        });
+
+        document.querySelector('.close-button').addEventListener('click', function() {
+            document.getElementById('contextModal').style.display = 'none';
+        });
+
+        // Закрытие по клику вне модального окна
+        window.addEventListener('click', function(event) {
+            let modal = document.getElementById('contextModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
