@@ -41,7 +41,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     story_context = {
                         "current_chapter": 1,
                         "story_state": "beginning",
-                        "previous_choices": []
+                        "previous_choices": [],
+                        "characters": [],
+                        "timeline": ["История еще не началась..."],
+                        "current_state": {
+                            "location": "Неизвестно",
+                            "scene": "Ожидание начала истории",
+                            "goal": "Начать приключение"
+                        }
                     }
                 else:
                     # Обычная обработка выбора
@@ -69,6 +76,22 @@ async def websocket_endpoint(websocket: WebSocket):
                         logger.info("[STORY] <<< Текст отправлен клиенту")
                         current_text = segment["text"]
                         logger.info(f"[STORY] Текущий текст обновлен, done={segment['done']}")
+
+                        # Если это финальный фрагмент, обновляем контекст
+                        if segment["done"]:
+                            logger.info("[STORY] >>> Обновляем контекст истории")
+                            # Обновляем контекст
+                            story_context["current_text"] = current_text
+                            # Отправляем обновленный контекст клиенту
+                            await websocket.send_json({
+                                "type": "context",
+                                "content": {
+                                    "characters": story_context.get("characters", []),
+                                    "timeline": story_context.get("timeline", []),
+                                    "current_state": story_context.get("current_state", {})
+                                }
+                            })
+                            logger.info("[STORY] <<< Контекст обновлен и отправлен")
                     
                     # Когда история завершена и есть варианты выбора
                     if segment["choices"] and segment["done"]:

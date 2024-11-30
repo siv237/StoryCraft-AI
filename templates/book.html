@@ -260,6 +260,14 @@
             border-radius: 5px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             overflow-y: auto;
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 5px;
+            position: relative;
         }
 
         .close-button {
@@ -289,6 +297,12 @@
             color: #666;
             line-height: 1.6;
         }
+
+        .empty-state {
+            color: #999;
+            font-style: italic;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
@@ -315,16 +329,26 @@
             <span class="close-button">&times;</span>
             <h2>Контекст истории</h2>
             <div class="context-content">
-                <h3>Основные персонажи:</h3>
-                <p>Храбрый рыцарь Артур, принцесса Елена, мудрый волшебник Мерлин</p>
+                <div id="characters-section">
+                    <h3>Персонажи:</h3>
+                    <div id="characters-list">
+                        <p class="empty-state">История еще не началась...</p>
+                    </div>
+                </div>
                 
-                <h3>Текущая локация:</h3>
-                <p>Таинственный лес на границе Темного королевства</p>
+                <div id="timeline-section">
+                    <h3>Ключевые события:</h3>
+                    <div id="timeline-list">
+                        <p class="empty-state">Пока ничего не произошло...</p>
+                    </div>
+                </div>
                 
-                <h3>Важные события:</h3>
-                <p>- Артур получил магический меч<br>
-                   - Принцесса была похищена драконом<br>
-                   - Мерлин раскрыл древнее пророчество</p>
+                <div id="current-state-section">
+                    <h3>Текущее состояние:</h3>
+                    <div id="current-state-info">
+                        <p class="empty-state">Ожидание начала истории...</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -571,6 +595,30 @@
                     button.onclick = () => makeChoice(choice);
                     choicesContainer.appendChild(button);
                 });
+            } else if (data.type === 'context') {
+                // Обновляем секции контекста
+                const charactersList = document.getElementById('characters-list');
+                const timelineList = document.getElementById('timeline-list');
+                const currentStateInfo = document.getElementById('current-state-info');
+
+                // Обновляем персонажей
+                charactersList.innerHTML = data.content.characters.length ? 
+                    data.content.characters.join('<br>') : 
+                    '<p class="empty-state">История еще не началась...</p>';
+
+                // Обновляем хронологию
+                timelineList.innerHTML = data.content.timeline.length ?
+                    data.content.timeline.join('<br>') :
+                    '<p class="empty-state">Пока ничего не произошло...</p>';
+
+                // Обновляем текущее состояние
+                const stateEntries = Object.entries(data.content.current_state)
+                    .filter(([_, value]) => value !== null && value !== undefined)
+                    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`);
+                
+                currentStateInfo.innerHTML = stateEntries.length ?
+                    stateEntries.join('') :
+                    '<p class="empty-state">Ожидание начала истории...</p>';
             } else if (data.type === 'image') {
                 processImage(data);
             }
