@@ -137,7 +137,14 @@ class StoryImageGenerator:
                 base_prompt = "anime style, high quality illustration"
                 full_prompt = f"{base_prompt}, {prompt}"
                 
-                # Проверяем доступную память GPU
+                # Сначала выгружаем модель Ollama
+                from app.services.ollama.story_generator import unload_model_from_gpu
+                if not await unload_model_from_gpu():
+                    logger.warning("Не удалось выгрузить модель Ollama перед генерацией изображения")
+                    return None
+                logger.info("Модель Ollama успешно выгружена перед генерацией изображения")
+
+                # Теперь проверяем доступную память GPU
                 async with session.get(f"{comfy_config.base_url}/system_stats") as response:
                     if response.status != 200:
                         logger.error("Не удалось получить информацию о системе")
@@ -154,13 +161,6 @@ class StoryImageGenerator:
                             logger.warning("Недостаточно свободной памяти GPU для генерации изображения")
                             return None
                 
-                # Выгружаем модель Ollama перед генерацией изображения
-                try:
-                    await session.post("http://localhost:11434/api/unload", json={"model": OLLAMA_CONFIG["model"]})
-                    logger.info("Модель Ollama выгружена перед генерацией изображения")
-                except Exception as e:
-                    logger.error(f"Ошибка при выгрузке модели Ollama: {e}")
-            
                 # Модифицируем workflow с нашим промптом
                 workflow = comfy_config.modify_workflow(
                     prompt=full_prompt,

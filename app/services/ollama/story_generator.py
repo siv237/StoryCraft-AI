@@ -64,7 +64,7 @@ async def unload_model_from_gpu():
     try:
         async with aiohttp.ClientSession() as session:
             response = await session.post(
-                "http://localhost:11434/api/generate",
+                f"{OLLAMA_CONFIG['base_url']}/api/generate",
                 json={
                     "model": OLLAMA_CONFIG['model'],
                     "prompt": "",
