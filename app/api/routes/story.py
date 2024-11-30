@@ -3,6 +3,7 @@ from typing import List
 import logging
 from app.services.ollama import generate_next_segment
 from app.services.comfy.image_generator import story_image_generator
+from app.services.ollama.story_generator import update_story_context
 import aiohttp
 import asyncio
 import json
@@ -80,8 +81,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         # Если это финальный фрагмент, обновляем контекст
                         if segment["done"]:
                             logger.info("[STORY] >>> Обновляем контекст истории")
-                            # Обновляем контекст
-                            story_context["current_text"] = current_text
+                            # Обновляем контекст на основе текста
+                            story_context = await update_story_context(current_text, choice, story_context)
                             # Отправляем обновленный контекст клиенту
                             await websocket.send_json({
                                 "type": "context",

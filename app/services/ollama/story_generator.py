@@ -86,6 +86,24 @@ async def unload_model_from_gpu():
         logger.warning(f"Ошибка при выгрузке модели из GPU: {e}")
         return False
 
+async def generate_text(prompt: str) -> str:
+    """Генерирует текст с помощью языковой модели"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{OLLAMA_CONFIG['base_url']}/api/generate",
+                json={
+                    "model": OLLAMA_CONFIG["model"],
+                    "prompt": prompt,
+                    "stream": False
+                }
+            ) as response:
+                result = await response.json()
+                return result["response"]
+    except Exception as e:
+        logger.error(f"Ошибка генерации текста: {e}")
+        return ""
+
 async def generate_next_segment(choice: str, context: Dict) -> Dict:
     logger.info("[GENERATOR] >>> Начинаем генерацию нового сегмента")
     logger.info(f"[GENERATOR] Выбор пользователя: {choice}")
@@ -349,3 +367,82 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
                     logger.info("[GENERATOR] <<< Иллюстрация отправлена")
             
             logger.info("[GENERATOR] <<< Генерация сегмента завершена")
+
+async def analyze_context(text: str) -> dict:
+    """Анализирует текст истории с помощью языковой модели"""
+    system_prompt = """Ты - помощник для анализа текста истории. Прочитай текст и ответь на следующие вопросы:
+1. Кто главный герой? (пол, возраст, имя если есть)
+2. Где происходит действие? (текущая локация)
+3. Что произошло? (краткое описание 2-3 ключевых событий)
+
+Ответь в формате JSON без дополнительной разметки:
+{
+    "character": {
+        "gender": "мужской/женский",
+        "age": "возраст",
+        "name": "имя или null"
+    },
+    "location": "где происходит действие",
+    "events": ["событие 1", "событие 2"]
+}
+
+Важно: верни только JSON, без markdown-разметки и других символов."""
+
+    prompt = f"{system_prompt}\n\nТекст истории:\n{text}"
+    
+    try:
+        logger.info("[CONTEXT] >>> Отправляем запрос на анализ контекста")
+        response = await generate_text(prompt)
+        logger.info(f"[CONTEXT] Получен ответ: {response}")
+        
+        # Очищаем ответ от markdown разметки
+        clean_response = response.strip()
+        if clean_response.startswith('```'):
+            clean_response = clean_response.split('\n', 1)[1]  # Убираем первую строку с ```json
+        if clean_response.endswith('```'):
+            clean_response = clean_response.rsplit('\n', 1)[0]  # Убираем последнюю строку с ```
+        clean_response = clean_response.strip()
+        
+        logger.info(f"[CONTEXT] Очищенный ответ: {clean_response}")
+        context = json.loads(clean_response)
+        logger.info("[CONTEXT] Контекст успешно проанализирован")
+        return context
+    except Exception as e:
+        logger.error(f"Ошибка анализа контекста: {e}")
+        return {
+            "character": {"gender": None, "age": None, "name": None},
+            "location": "Неизвестно",
+            "events": []
+        }
+
+async def update_story_context(text: str, choice: str, story_context: dict) -> dict:
+    """Обновляет контекст истории на основе текущего текста и выбора"""
+    
+    # Анализируем текст с помощью модели
+    context = await analyze_context(text)
+    
+    # Обновляем информацию о персонаже
+    if context["character"]["gender"]:
+        story_context["current_state"]["gender"] = context["character"]["gender"]
+    if context["character"]["age"]:
+        story_context["current_state"]["age"] = context["character"]["age"]
+    if context["character"]["name"]:
+        story_context["current_state"]["name"] = context["character"]["name"]
+    
+    # Обновляем локацию
+    if context["location"]:
+        story_context["current_state"]["location"] = context["location"]
+    
+    # Добавляем события в хронологию
+    if context["events"]:
+        story_context["timeline"].extend(context["events"])
+    
+    # Добавляем выбор в хронологию, если он был сделан
+    if choice and choice != "Начать историю":
+        story_context["timeline"].append(f"Выбор: {choice}")
+
+    # Обновляем текущее состояние
+    story_context["current_state"]["scene"] = "Развитие истории"
+    story_context["current_state"]["goal"] = "Продолжить приключение"
+
+    return story_context
