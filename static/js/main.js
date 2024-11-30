@@ -162,30 +162,70 @@ function updateContext(data) {
     
     // Обновляем информацию о персонаже
     if (data.character) {
-        document.getElementById('character-gender').textContent = data.character.gender || '-';
-        document.getElementById('character-age').textContent = data.character.age || 'неизвестно';
-        document.getElementById('character-name').textContent = data.character.name || '-';
+        const charactersList = document.getElementById('characters-list');
+        charactersList.innerHTML = `
+            <div class="context-item">
+                <span class="context-label">Пол</span>
+                <span class="context-value">${data.character.gender || '-'}</span>
+            </div>
+            <div class="context-item">
+                <span class="context-label">Возраст</span>
+                <span class="context-value">${data.character.age || 'неизвестно'}</span>
+            </div>
+            <div class="context-item">
+                <span class="context-label">Имя</span>
+                <span class="context-value">${data.character.name || '-'}</span>
+            </div>
+        `;
     }
     
     // Обновляем события
     if (data.timeline) {
-        const timelineElement = document.getElementById('timeline');
-        timelineElement.innerHTML = '';
-        data.timeline.forEach(event => {
-            const li = document.createElement('li');
-            li.textContent = event;
-            timelineElement.appendChild(li);
-        });
+        const timelineElement = document.getElementById('timeline-list');
+        if (data.timeline.length > 0) {
+            timelineElement.innerHTML = data.timeline
+                .map(event => `<div class="timeline-event">${event}</div>`)
+                .join('');
+        } else {
+            timelineElement.innerHTML = '<div class="empty-state">История только начинается...</div>';
+        }
     }
     
     // Обновляем текущее состояние
     if (data.current_state) {
-        document.getElementById('current-location').textContent = 
-            data.current_state.current_location || 'Неизвестно';
-        document.getElementById('current-scene').textContent = 
-            data.current_state.current_scene || 'Информация обновляется...';
-        document.getElementById('current-goal').textContent = 
-            data.current_state.current_goal || 'Информация обновляется...';
+        const stateInfo = document.getElementById('current-state-info');
+        const stateEntries = [];
+        
+        if (data.current_state.current_location) {
+            stateEntries.push(`
+                <div class="context-item">
+                    <span class="context-label">Локация</span>
+                    <span class="context-value">${data.current_state.current_location}</span>
+                </div>
+            `);
+        }
+        
+        if (data.current_state.current_scene) {
+            stateEntries.push(`
+                <div class="context-item">
+                    <span class="context-label">Сцена</span>
+                    <span class="context-value">${data.current_state.current_scene}</span>
+                </div>
+            `);
+        }
+        
+        if (data.current_state.current_goal) {
+            stateEntries.push(`
+                <div class="context-item">
+                    <span class="context-label">Цель</span>
+                    <span class="context-value">${data.current_state.current_goal}</span>
+                </div>
+            `);
+        }
+        
+        stateInfo.innerHTML = stateEntries.length ?
+            stateEntries.join('') :
+            '<div class="empty-state">Информация обновляется...</div>';
     }
 }
 
