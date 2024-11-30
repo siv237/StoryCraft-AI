@@ -23,6 +23,8 @@ function initWebSocket() {
                 handleStoryStart(data.data);
             } else if (data.type === 'story_update') {
                 handleStoryUpdate(data.data);
+            } else if (data.type === 'context') {
+                updateContext(data.content);
             } else if (data.error) {
                 console.error('Error from server:', data.error);
                 showError(data.error);
@@ -151,6 +153,39 @@ function handleChoice(choiceText) {
         }));
     } else {
         showError('Соединение потеряно. Обновите страницу.');
+    }
+}
+
+// Обновление контекста истории
+function updateContext(data) {
+    console.log('Updating context:', data);
+    
+    // Обновляем информацию о персонаже
+    if (data.character) {
+        document.getElementById('character-gender').textContent = data.character.gender || '-';
+        document.getElementById('character-age').textContent = data.character.age || 'неизвестно';
+        document.getElementById('character-name').textContent = data.character.name || '-';
+    }
+    
+    // Обновляем события
+    if (data.timeline) {
+        const timelineElement = document.getElementById('timeline');
+        timelineElement.innerHTML = '';
+        data.timeline.forEach(event => {
+            const li = document.createElement('li');
+            li.textContent = event;
+            timelineElement.appendChild(li);
+        });
+    }
+    
+    // Обновляем текущее состояние
+    if (data.current_state) {
+        document.getElementById('current-location').textContent = 
+            data.current_state.current_location || 'Неизвестно';
+        document.getElementById('current-scene').textContent = 
+            data.current_state.current_scene || 'Информация обновляется...';
+        document.getElementById('current-goal').textContent = 
+            data.current_state.current_goal || 'Информация обновляется...';
     }
 }
 

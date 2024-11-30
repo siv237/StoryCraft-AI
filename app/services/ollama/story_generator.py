@@ -371,8 +371,8 @@ async def generate_next_segment(choice: str, context: Dict) -> Dict:
 async def analyze_context(text: str) -> dict:
     """Анализирует текст истории с помощью языковой модели"""
     system_prompt = """Ты - помощник для анализа текста истории. Прочитай текст и ответь на следующие вопросы:
-1. Кто главный герой? Укажи только то, что точно известно из текста:
-   - пол (укажи "-" если не ясно)
+1. Кто главный герой? Внимательно проанализируй текст и определи:
+   - пол (строго ОДНО значение: "мужской" или "женский" или "-")
    - возраст (укажи "неизвестно" если не указано)
    - имя (укажи null если не названо)
 2. Где происходит действие? (текущая локация)
@@ -391,7 +391,8 @@ async def analyze_context(text: str) -> dict:
 
 Важно: 
 - Верни только JSON, без markdown-разметки и других символов
-- Если пол персонажа не ясен из текста, используй "-"
+- В поле gender верни СТРОГО ОДНО значение: "мужской" или "женский" или "-"
+- Определи пол по любым признакам в тексте (местоимения, окончания глаголов, описания)
 - События описывай кратко, но информативно"""
 
     prompt = f"{system_prompt}\n\nТекст истории:\n{text}"
@@ -404,13 +405,19 @@ async def analyze_context(text: str) -> dict:
         # Очищаем ответ от markdown разметки
         clean_response = response.strip()
         if clean_response.startswith('```'):
-            clean_response = clean_response.split('\n', 1)[1]  # Убираем первую строку с ```json
+            clean_response = clean_response.split('\n', 1)[1]
         if clean_response.endswith('```'):
-            clean_response = clean_response.rsplit('\n', 1)[0]  # Убираем последнюю строку с ```
+            clean_response = clean_response.rsplit('\n', 1)[0]
         clean_response = clean_response.strip()
         
         logger.info(f"[CONTEXT] Очищенный ответ: {clean_response}")
         context = json.loads(clean_response)
+        
+        # Проверяем и исправляем значение пола
+        if context["character"]["gender"] and "/" in context["character"]["gender"]:
+            # Если модель вернула несколько значений, берем первое
+            context["character"]["gender"] = context["character"]["gender"].split("/")[0]
+        
         logger.info("[CONTEXT] Контекст успешно проанализирован")
         return context
     except Exception as e:

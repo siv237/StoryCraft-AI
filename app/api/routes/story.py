@@ -87,17 +87,13 @@ async def websocket_endpoint(websocket: WebSocket):
                             await websocket.send_json({
                                 "type": "context",
                                 "content": {
-                                    "characters": [
-                                        f"Пол: {story_context['current_state'].get('gender', '-')}",
-                                        f"Возраст: {story_context['current_state'].get('age', 'неизвестно')}",
-                                        f"Имя: {story_context['current_state'].get('name', '-')}"
-                                    ],
+                                    "character": {
+                                        "gender": story_context["current_state"].get("gender", "-"),
+                                        "age": story_context["current_state"].get("age", "неизвестно"),
+                                        "name": story_context["current_state"].get("name", "-")
+                                    },
                                     "timeline": story_context.get("timeline", []),
-                                    "current_state": {
-                                        "Локация": story_context["current_state"].get("location", "Неизвестно"),
-                                        "Сцена": story_context["current_state"].get("scene", "Начало истории"),
-                                        "Цель": story_context["current_state"].get("goal", "Начать приключение")
-                                    }
+                                    "current_state": story_context.get("current_state", {})
                                 }
                             })
                             logger.info("[STORY] <<< Контекст обновлен и отправлен")
