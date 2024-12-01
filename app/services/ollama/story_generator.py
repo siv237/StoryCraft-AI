@@ -412,7 +412,10 @@ async def analyze_context(text: str) -> dict:
    - возраст (укажи "неизвестно" если не указано)
    - имя (укажи null если не названо)
 2. Где происходит действие? (текущая локация)
-3. Что произошло? (краткое описание 2-3 ключевых событий)
+3. Определи время:
+   - время суток (утро/день/вечер/ночь)
+   - сезон (зима/весна/лето/осень)
+4. Что произошло? (краткое описание 2-3 ключевых событий)
 
 Ответь в формате JSON без дополнительной разметки:
 {
@@ -422,6 +425,10 @@ async def analyze_context(text: str) -> dict:
         "name": "имя или null"
     },
     "location": "где происходит действие",
+    "time": {
+        "day_time": "утро/день/вечер/ночь",
+        "season": "зима/весна/лето/осень"
+    },
     "events": ["событие 1", "событие 2"]
 }
 
@@ -429,7 +436,8 @@ async def analyze_context(text: str) -> dict:
 - Верни только JSON, без markdown-разметки и других символов
 - В поле gender верни СТРОГО ОДНО значение: "мужской" или "женский" или "-"
 - Определи пол по любым признакам в тексте (местоимения, окончания глаголов, описания)
-- События описывай кратко, но информативно"""
+- События описывай кратко, но информативно
+- Если время суток или сезон не указаны явно, определи их по косвенным признакам (освещение, погода, действия персонажей)"""
 
     prompt = f"{system_prompt}\n\nТекст истории:\n{text}"
     
@@ -461,6 +469,7 @@ async def analyze_context(text: str) -> dict:
         return {
             "character": {"gender": None, "age": None, "name": None},
             "location": "Неизвестно",
+            "time": {"day_time": None, "season": None},
             "events": []
         }
 
@@ -481,6 +490,11 @@ async def update_story_context(text: str, choice: str, story_context: dict) -> d
     # Обновляем локацию если она определена
     if context.get("location"):
         story_context["current_state"]["current_location"] = context["location"]
+    
+    # Обновляем время суток и сезон
+    if context.get("time"):
+        story_context["current_state"]["day_time"] = context["time"]["day_time"]
+        story_context["current_state"]["season"] = context["time"]["season"]
     
     # Добавляем события в хронологию
     if context["events"]:
