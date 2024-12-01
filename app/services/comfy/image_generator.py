@@ -18,18 +18,28 @@ logger = logging.getLogger(__name__)
 
 class StoryImageGenerator:
     def __init__(self):
-        # Убираем дублирование, используем конфиг напрямую
         self.comfyui_process = None
-        self.comfyui_path = '/home/user/Загрузки/Data/Packages/ComfyUI'
-        self.comfyui_command = [
-            './venv/bin/python3', 'main.py',
-            '--listen', '0.0.0.0',
-            '--lowvram',
-            '--preview-method', 'auto',
-            '--use-quad-cross-attention',
-            '--force-fp32'
-        ]
+        self.comfyui_path = os.getenv('COMFYUI_PATH', '/home/user/Загрузки/Data/Packages/ComfyUI')
         
+        python_path = os.getenv('COMFYUI_PYTHON_PATH', './venv/bin/python3')
+        script = os.getenv('COMFYUI_SCRIPT', 'main.py')
+        args = os.getenv('COMFYUI_ARGS', '--listen 0.0.0.0 --lowvram --preview-method auto --use-quad-cross-attention --force-fp32').split()
+        
+        self.comfyui_command = [python_path, script] + args
+        logger.info(f"ComfyUI path: {self.comfyui_path}")
+        logger.info(f"ComfyUI command: {self.comfyui_command}")
+        
+        # Формируем команду запуска из переменных окружения
+        # self.comfyui_command = [
+        #     './venv/bin/python3', 'main.py',
+        #     '--listen', '0.0.0.0',
+        #     '--lowvram',
+        #     '--preview-method', 'auto',
+        #     '--use-quad-cross-attention',
+        #     '--force-fp32'
+        # ]
+        # logger.info(f"ComfyUI command: {self.comfyui_command}")
+
     def start_comfyui(self):
         """Запускает сервер ComfyUI"""
         logger.info("Запускаем ComfyUI сервер...")
