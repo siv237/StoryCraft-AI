@@ -7,6 +7,10 @@ from config.comfy_config import comfy_config
 from config.ollama_config import OLLAMA_CONFIG, PROMPT_CONFIG
 import base64
 import os
+import subprocess
+import psutil
+import time
+from pathlib import Path
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -15,8 +19,47 @@ logger = logging.getLogger(__name__)
 class StoryImageGenerator:
     def __init__(self):
         # Убираем дублирование, используем конфиг напрямую
-        pass
+        self.comfyui_process = None
+        self.comfyui_path = '/home/user/Загрузки/Data/Packages/ComfyUI'
+        self.comfyui_command = [
+            './venv/bin/python3', 'main.py',
+            '--listen', '0.0.0.0',
+            '--lowvram',
+            '--preview-method', 'auto',
+            '--use-quad-cross-attention',
+            '--force-fp32'
+        ]
         
+    def start_comfyui(self):
+        """Запускает сервер ComfyUI"""
+        logger.info("Запускаем ComfyUI сервер...")
+        try:
+            self.comfyui_process = subprocess.Popen(
+                self.comfyui_command,
+                cwd=self.comfyui_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            time.sleep(5)  # Даем серверу время на запуск
+            logger.info("ComfyUI сервер запущен")
+        except Exception as e:
+            logger.error(f"Ошибка при запуске ComfyUI: {str(e)}")
+            
+    def stop_comfyui(self):
+        """Останавливает сервер ComfyUI"""
+        logger.info("Останавливаем ComfyUI сервер...")
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                if 'python' in proc.info['name'].lower():
+                    cmdline = proc.info.get('cmdline', [])
+                    if any('main.py' in cmd for cmd in cmdline) and any('--lowvram' in cmd for cmd in cmdline):
+                        logger.info(f"Останавливаем процесс ComfyUI (PID: {proc.info['pid']})")
+                        proc.kill()
+                        proc.wait()
+            logger.info("ComfyUI сервер остановлен")
+        except Exception as e:
+            logger.error(f"Ошибка при остановке ComfyUI: {str(e)}")
+
     async def _translate_to_english(self, text: str, session: aiohttp.ClientSession) -> str:
         """Переводит текст на английский язык и создает краткое описание сцены"""
         max_retries = OLLAMA_CONFIG['connection']['max_retries']
@@ -123,6 +166,8 @@ class StoryImageGenerator:
     async def generate_story_illustration(self, context: Dict) -> Optional[str]:
         """Генерирует иллюстрацию для текущего сегмента истории"""
         try:
+            self.start_comfyui()  # Запускаем ComfyUI перед генерацией
+            
             session = context.get('session')
             if not session:
                 # Если сессия не передана, создаем новую
@@ -220,6 +265,8 @@ class StoryImageGenerator:
         except Exception as e:
             logger.error(f"Ошибка генерации иллюстрации: {e}")
             return None
+        finally:
+            self.stop_comfyui()  # Останавливаем ComfyUI после генерации
 
 # Создаем экземпляр генератора изображений
 story_image_generator = StoryImageGenerator()
