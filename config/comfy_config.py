@@ -6,9 +6,9 @@ from dataclasses import dataclass
 
 @dataclass
 class ComfyUIConfig:
-    host: str = "127.0.0.1"
-    port: int = 8188
-    base_url: str = "http://127.0.0.1:8188"
+    host: str = os.getenv("COMFYUI_HOST", "127.0.0.1")
+    port: int = int(os.getenv("COMFYUI_PORT", "8188"))
+    base_url: str = None
     
     # Базовый конфиг для генерации изображений
     default_workflow: Dict[str, Any] = None
@@ -18,12 +18,12 @@ class ComfyUIConfig:
         self.default_workflow = {
             "3": {
                 "inputs": {
-                    "seed": 92494398233826,
-                    "steps": 20,          # Уменьшили количество шагов для экономии памяти
-                    "cfg": 1,
-                    "sampler_name": "euler_ancestral",
-                    "scheduler": "karras",
-                    "denoise": 1,
+                    "seed": int(os.getenv("COMFYUI_SEED", "92494398233826")),
+                    "steps": int(os.getenv("COMFYUI_STEPS", "20")),
+                    "cfg": float(os.getenv("COMFYUI_CFG", "1")),
+                    "sampler_name": os.getenv("COMFYUI_SAMPLER", "euler_ancestral"),
+                    "scheduler": os.getenv("COMFYUI_SCHEDULER", "karras"),
+                    "denoise": float(os.getenv("COMFYUI_DENOISE", "1")),
                     "model": ["4", 0],
                     "positive": ["6", 0],
                     "negative": ["7", 0],
@@ -36,7 +36,7 @@ class ComfyUIConfig:
             },
             "4": {
                 "inputs": {
-                    "ckpt_name": "epicrealism_naturalSinRC1VAE.safetensors"  # 
+                    "ckpt_name": os.getenv("COMFYUI_CHECKPOINT", "epicrealism_naturalSinRC1VAE.safetensors")
                 },
                 "class_type": "CheckpointLoaderSimple",
                 "_meta": {
@@ -45,8 +45,8 @@ class ComfyUIConfig:
             },
             "5": {
                 "inputs": {
-                    "width": 400,         # Уменьшили разрешение
-                    "height": 300,
+                    "width": int(os.getenv("COMFYUI_DEFAULT_WIDTH", "400")),
+                    "height": int(os.getenv("COMFYUI_DEFAULT_HEIGHT", "300")),
                     "batch_size": 1
                 },
                 "class_type": "EmptyLatentImage",
@@ -66,7 +66,7 @@ class ComfyUIConfig:
             },
             "7": {
                 "inputs": {
-                    "text": "text, watermark, bad quality, blurry, nsfw",
+                    "text": os.getenv("COMFYUI_NEGATIVE_PROMPT", "text, watermark, bad quality, blurry, nsfw"),
                     "clip": ["4", 1]
                 },
                 "class_type": "CLIPTextEncode",
@@ -115,7 +115,7 @@ class ComfyUIConfig:
             return None
 
     def modify_workflow(self, prompt: str, seed: Optional[int] = None,
-                       width: int = 800, height: int = 384) -> Dict[str, Any]:
+                       width: Optional[int] = None, height: Optional[int] = None) -> Dict[str, Any]:
         """Модификация рабочего процесса с пользовательскими параметрами"""
         workflow = self.default_workflow.copy()
         
@@ -123,8 +123,11 @@ class ComfyUIConfig:
         if seed is not None:
             workflow["3"]["inputs"]["seed"] = seed
         
-        workflow["5"]["inputs"]["width"] = width
-        workflow["5"]["inputs"]["height"] = height
+        if width is not None:
+            workflow["5"]["inputs"]["width"] = width
+        if height is not None:
+            workflow["5"]["inputs"]["height"] = height
+            
         workflow["6"]["inputs"]["text"] = prompt
         
         return workflow
