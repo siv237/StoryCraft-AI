@@ -79,7 +79,7 @@ class StoryImageGenerator:
         eng_description = await self._translate_to_english(current_text, session)
         
         # Формируем промпт для изображения
-        base_prompt = "anime style, high quality illustration"
+        base_prompt = os.getenv("COMFYUI_BASE_PROMPT", "anime style, high quality illustration")
         prompt = f"{base_prompt}, {eng_description}"
         
         logger.info(f"Подготовлен промпт для изображения: {prompt}")
@@ -134,7 +134,7 @@ class StoryImageGenerator:
             try:
                 # Используем готовый промпт из контекста
                 prompt = context.get('prompt', 'character in a room, story scene')
-                base_prompt = "anime style, high quality illustration"
+                base_prompt = os.getenv("COMFYUI_BASE_PROMPT", "anime style, high quality illustration")
                 full_prompt = f"{base_prompt}, {prompt}"
                 
                 # Сначала выгружаем модель Ollama

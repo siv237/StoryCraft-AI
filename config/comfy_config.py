@@ -18,7 +18,7 @@ class ComfyUIConfig:
         self.default_workflow = {
             "3": {
                 "inputs": {
-                    "seed": int(os.getenv("COMFYUI_SEED", "92494398233826")),
+                    "seed": int(os.getenv("COMFYUI_SEED", "42")),
                     "steps": int(os.getenv("COMFYUI_STEPS", "20")),
                     "cfg": float(os.getenv("COMFYUI_CFG", "1")),
                     "sampler_name": os.getenv("COMFYUI_SAMPLER", "euler_ancestral"),
