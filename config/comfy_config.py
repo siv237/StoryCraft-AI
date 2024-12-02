@@ -84,6 +84,19 @@ class ComfyUIConfig:
                     "title": "VAE Decode"
                 }
             },
+            "10": {
+                "inputs": {
+                    "lora_name": "UltraReal.safetensors",
+                    "strength_model": 1,
+                    "strength_clip": 1,
+                    "model": ["4", 0],
+                    "clip": ["4", 1]
+                },
+                "class_type": "LoraLoader",
+                "_meta": {
+                    "title": "Load LoRA"
+                }
+            },
             "9": {
                 "inputs": {
                     "filename_prefix": "ComfyUI",
