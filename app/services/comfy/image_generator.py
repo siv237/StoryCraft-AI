@@ -11,6 +11,7 @@ import subprocess
 import psutil
 import time
 from pathlib import Path
+import uuid
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -173,6 +174,82 @@ class StoryImageGenerator:
         except Exception as e:
             logger.error(f"Ошибка при выгрузке моделей: {e}")
 
+    async def _monitor_generation(self, prompt_id: str, session: aiohttp.ClientSession) -> None:
+        """Мониторит процесс генерации через WebSocket"""
+        client_id = f"comfyuigen_{uuid.uuid4().hex[:8]}"
+        ws_url = f"ws://{comfy_config.base_url.split('://', 1)[1]}/ws?clientId={client_id}"
+        
+        try:
+            async with session.ws_connect(ws_url) as ws:
+                async for msg in ws:
+                    if msg.type == aiohttp.WSMsgType.TEXT:
+                        try:
+                            data = json.loads(msg.data)
+                            if not isinstance(data, dict) or 'type' not in data:
+                                continue
+                                
+                            event_type = data['type']
+                            event_data = data.get('data', {})
+                            
+                            # Проверяем, что событие относится к нашему prompt_id
+                            if 'prompt_id' in event_data and event_data['prompt_id'] != prompt_id:
+                                continue
+                                
+                            if event_type == "status":
+                                status_data = event_data.get('status', {}).get('exec_info', {})
+                                queue_remaining = status_data.get('queue_remaining', 0)
+                                if queue_remaining > 0:
+                                    logger.info(f"В очереди {queue_remaining} задач")
+                                    
+                            elif event_type == "execution_start":
+                                logger.info(f"Начало генерации изображения (prompt_id: {prompt_id})")
+                                
+                            elif event_type == "execution_cached":
+                                logger.info("Используется кэшированный результат")
+                                
+                            elif event_type == "executing":
+                                node = event_data.get('node', 'unknown')
+                                node_name = {
+                                    '3': 'KSampler (генерация)',
+                                    '8': 'VAE Decode (декодирование)',
+                                    '9': 'SaveImage (сохранение)'
+                                }.get(node, f'Node {node}')
+                                logger.info(f"Выполняется {node_name}")
+                                
+                            elif event_type == "progress":
+                                value = event_data.get('value', 0)
+                                max_value = event_data.get('max', 100)
+                                node = event_data.get('node', 'unknown')
+                                node_name = {
+                                    '3': 'KSampler',
+                                    '8': 'VAE Decode',
+                                    '9': 'SaveImage'
+                                }.get(node, f'Node {node}')
+                                logger.info(f"Прогресс {node_name}: {value}/{max_value}")
+                                
+                            elif event_type == "executed":
+                                node = event_data.get('node', 'unknown')
+                                if node == '9' and 'output' in event_data:  # SaveImage node
+                                    output = event_data['output']
+                                    if 'images' in output:
+                                        image = output['images'][0]
+                                        logger.info(f"Изображение сохранено: {image['filename']}")
+                                        
+                            elif event_type == "execution_error":
+                                error = event_data.get('error', 'Неизвестная ошибка')
+                                logger.error(f"Ошибка генерации: {error}")
+                                return
+                                
+                            elif event_type == "execution_complete":
+                                logger.info("Генерация успешно завершена")
+                                return
+                                
+                        except json.JSONDecodeError:
+                            continue
+                            
+        except Exception as e:
+            logger.error(f"Ошибка WebSocket мониторинга: {str(e)}")
+
     async def generate_story_illustration(self, context: Dict) -> Optional[str]:
         """Генерирует иллюстрацию для текущего сегмента истории"""
         try:
@@ -194,9 +271,7 @@ class StoryImageGenerator:
                 
                 # Сначала выгружаем модель Ollama
                 from app.services.ollama.story_generator import unload_model_from_gpu
-                if not await unload_model_from_gpu():
-                    logger.warning("Не удалось выгрузить модель Ollama перед генерацией изображения")
-                    return None
+                await unload_model_from_gpu()
                 logger.info("Модель Ollama успешно выгружена перед генерацией изображения")
 
                 # Теперь проверяем доступную память GPU
@@ -233,6 +308,9 @@ class StoryImageGenerator:
                     
                     prompt_id = (await response.json())['prompt_id']
                     logger.info(f"Запущена генерация изображения, prompt_id: {prompt_id}")
+                    
+                    # Запускаем мониторинг в отдельной задаче
+                    monitor_task = asyncio.create_task(self._monitor_generation(prompt_id, session))
                     
                     # Ждем завершения генерации
                     while True:
