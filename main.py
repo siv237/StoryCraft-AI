@@ -10,6 +10,7 @@ from app.api.routes.story import router as story_router
 
 # Загружаем переменные окружения
 load_dotenv()
+load_dotenv(override=True)  # Добавляем override=True
 
 app = FastAPI(title="Interactive Book Generator")
 
