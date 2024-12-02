@@ -4,6 +4,7 @@ import logging
 from app.services.ollama import generate_next_segment
 from app.services.comfy.image_generator import story_image_generator
 from app.services.ollama.story_generator import update_story_context
+from app.services.image_generation import image_service, GenerationStatus
 import aiohttp
 import asyncio
 import json
@@ -150,17 +151,18 @@ async def websocket_endpoint(websocket: WebSocket):
                                     
                                     # 3. Генерируем изображение
                                     logger.info("Начинаем генерацию изображения")
-                                    story_context["prompt"] = prompt  # Передаем готовый промпт
-                                    image_path = await story_image_generator.generate_story_illustration(story_context)
+                                    result = await image_service.generate_image(prompt, session)
                                     
-                                    if image_path:
-                                        logger.info(f"Изображение сгенерировано: {image_path}")
+                                    if result.status == GenerationStatus.COMPLETED and result.image_data:
+                                        logger.info("Изображение успешно сгенерировано")
                                         await websocket.send_json({
                                             "type": "image",
-                                            "content": f"http://127.0.0.1:8188/view?filename={image_path}",
+                                            "content": result.image_data,
                                             "prompt": prompt
                                         })
                                         logger.info("Изображение отправлено клиенту")
+                                    else:
+                                        logger.error(f"Ошибка генерации изображения: {result.error_message}")
                                 except Exception as e:
                                     logger.error(f"Ошибка при генерации изображения: {e}")
                 
