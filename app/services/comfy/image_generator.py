@@ -51,8 +51,23 @@ class StoryImageGenerator:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             )
-            time.sleep(5)  # Даем серверу время на запуск
-            logger.info("ComfyUI сервер запущен")
+            # Увеличиваем время ожидания для CPU режима
+            max_attempts = 12  # 60 секунд максимум
+            for attempt in range(max_attempts):
+                try:
+                    import socket
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    result = sock.connect_ex(('127.0.0.1', 8188))
+                    sock.close()
+                    if result == 0:
+                        logger.info("ComfyUI сервер запущен и готов к работе")
+                        return
+                except:
+                    pass
+                time.sleep(5)
+                logger.info(f"Ожидаем запуск ComfyUI, попытка {attempt + 1}/{max_attempts}")
+            
+            logger.error("ComfyUI сервер не смог запуститься за отведенное время")
         except Exception as e:
             logger.error(f"Ошибка при запуске ComfyUI: {str(e)}")
             
